@@ -1,0 +1,52 @@
+# Job Hunter systemd 服务单元（供「正常」Linux VM / 物理机使用）。
+#
+# 注意：在受限容器（/etc 只读、sudo 不可用、无 user bus）上无法安装，
+#       那种环境请改用项目根目录的 run_server.sh 守护脚本。
+#
+# 安装步骤（需要可用的 root/sudo）：
+#   1. 按需修改下面的 User / WorkingDirectory / ExecStart 路径。
+#   2. sudo cp deploy/jobhunter.service /etc/systemd/system/jobhunter.service
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable --now jobhunter.service
+#   5. systemctl status jobhunter.service
+#   6. journalctl -u jobhunter -f      # 看日志
+#
+# 对外开放：把下面 Environment 里的 HOST 改成 0.0.0.0（建议同时上 Nginx+HTTPS）。
+
+[Unit]
+Description=Job Hunter Agent (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# 改成实际运行的用户（不要用 root 跑面向公网的服务）
+User=williamq
+Group=williamq
+
+# 改成项目实际绝对路径
+WorkingDirectory=/home/williamq/AiAgent/job-hunter
+
+# 监听配置：仅本机用 127.0.0.1，对外用 0.0.0.0
+Environment=HOST=127.0.0.1
+Environment=PORT=8000
+# 让本机请求绕过代理（连 Chrome 调试端口 9222 必须）
+Environment=NO_PROXY=localhost,127.0.0.1,::1
+
+# 用 venv 里的 python 启动；改成你的实际 venv 路径
+ExecStart=/home/williamq/AiAgent/job-hunter/.venv/bin/python -m app.main
+
+# 崩溃自动重启
+Restart=always
+RestartSec=3
+
+# 优雅停止
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# 资源/安全（可按需放开或收紧）
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Hunter · 我的职位</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --brand1:#4f46e5; --brand2:#2563eb; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    [x-cloak] { display: none !important; }
+    .brand-gradient { background: linear-gradient(135deg, var(--brand1), var(--brand2)); }
+    .text-gradient { background: linear-gradient(135deg, var(--brand1), var(--brand2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .app-bg {
+      background:
+        radial-gradient(1100px 560px at 100% -10%, #eef2ff 0%, transparent 55%),
+        radial-gradient(900px 480px at -10% 0%, #eff6ff 0%, transparent 50%),
+        #f1f5f9;
+    }
+    .card-hover { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 18px 30px -18px rgba(15,23,42,.30); }
+    button, a, input, select, textarea { transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease, opacity .15s ease, transform .15s ease; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+  </style>
+</head>
+<body class="app-bg text-slate-800 antialiased">
+  <div x-data="portalApp()" x-init="init()" class="min-h-screen text-slate-800">
+
+    <!-- 浮动通知 -->
+    <div x-show="notice" x-transition x-cloak
+         class="fixed top-5 left-1/2 -translate-x-1/2 z-[80] rounded-xl px-5 py-3 text-sm font-medium shadow-lg ring-1"
+         :class="noticeErr ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200'"
+         x-text="notice"></div>
+
+    <!-- 未登录：登录/注册 -->
+    <div x-show="!me" x-cloak class="min-h-screen flex items-center justify-center px-4 py-10">
+      <div class="w-full max-w-5xl grid lg:grid-cols-2 gap-10 items-center">
+        <!-- 左侧品牌介绍 -->
+        <div class="hidden lg:block">
+          <div class="flex items-center gap-3 mb-7">
+            <div class="brand-gradient w-12 h-12 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg shadow-indigo-500/30">🎯</div>
+            <span class="text-2xl font-extrabold tracking-tight">Job Hunter</span>
+          </div>
+          <h1 class="text-[2.6rem] leading-[1.15] font-extrabold tracking-tight text-slate-900">
+            让 AI 帮你<span class="text-gradient">精准匹配</span><br>每天值得投的好职位
+          </h1>
+          <p class="mt-5 text-slate-500 text-base leading-relaxed max-w-md">
+            个性化订阅、智能匹配打分、简历诊断与优化、面试题与投递话术——一站式陪你高效求职。
+          </p>
+          <div class="mt-8 grid grid-cols-2 gap-3.5 max-w-md">
+            <div class="bg-white/70 backdrop-blur rounded-2xl p-4 ring-1 ring-slate-200/80">
+              <div class="text-2xl">🎯</div><div class="mt-1.5 text-sm font-semibold text-slate-800">智能匹配</div>
+              <div class="text-xs text-slate-500 mt-0.5">按画像打分排序</div>
+            </div>
+            <div class="bg-white/70 backdrop-blur rounded-2xl p-4 ring-1 ring-slate-200/80">
+              <div class="text-2xl">📄</div><div class="mt-1.5 text-sm font-semibold text-slate-800">简历优化</div>
+              <div class="text-xs text-slate-500 mt-0.5">诊断打分＋改写</div>
+            </div>
+            <div class="bg-white/70 backdrop-blur rounded-2xl p-4 ring-1 ring-slate-200/80">
+              <div class="text-2xl">📈</div><div class="mt-1.5 text-sm font-semibold text-slate-800">就业趋势</div>
+              <div class="text-xs text-slate-500 mt-0.5">行情一目了然</div>
+            </div>
+            <div class="bg-white/70 backdrop-blur rounded-2xl p-4 ring-1 ring-slate-200/80">
+              <div class="text-2xl">🤝</div><div class="mt-1.5 text-sm font-semibold text-slate-800">内推机会</div>
+              <div class="text-xs text-slate-500 mt-0.5">直达发布者</div>
+            </div>
+          </div>
+        </div>
+        <!-- 右侧登录卡片 -->
+        <div class="bg-white rounded-3xl shadow-xl ring-1 ring-slate-200/70 p-8 w-full max-w-md mx-auto">
+          <div class="lg:hidden flex items-center gap-2 justify-center mb-6">
+            <div class="brand-gradient w-10 h-10 rounded-xl flex items-center justify-center text-white text-xl shadow">🎯</div>
+            <span class="text-xl font-extrabold tracking-tight">Job Hunter</span>
+          </div>
+          <div class="flex gap-1 mb-6 p-1 bg-slate-100 rounded-xl text-sm">
+            <button @click="authTab='login'" class="flex-1 px-4 py-2 rounded-lg font-medium"
+                    :class="authTab==='login' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'">登录</button>
+            <button @click="authTab='register'" class="flex-1 px-4 py-2 rounded-lg font-medium"
+                    :class="authTab==='register' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'">注册</button>
+          </div>
+          <div class="space-y-4 text-sm">
+            <div x-show="authTab==='register'">
+              <label class="block text-slate-500 mb-1.5 font-medium">昵称</label>
+              <input x-model="authForm.name" placeholder="怎么称呼你" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1.5 font-medium">邮箱</label>
+              <input x-model="authForm.email" type="email" placeholder="you@example.com" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1.5 font-medium">密码<span x-show="authTab==='register'" class="text-slate-400 font-normal">（至少 6 位）</span></label>
+              <input x-model="authForm.password" type="password" placeholder="••••••" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300"
+                     @keyup.enter="authTab==='login' ? login() : register()" />
+            </div>
+            <button @click="authTab==='login' ? login() : register()" :disabled="busy"
+                    class="w-full brand-gradient hover:opacity-95 disabled:opacity-50 text-white rounded-xl px-4 py-3 font-semibold shadow-lg shadow-indigo-500/20"
+                    x-text="authTab==='login' ? '登录' : '注册并登录'"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已登录 -->
+    <div x-show="me" x-cloak class="flex min-h-screen">
+      <!-- 侧边栏（引导阶段隐藏导航，专注完善画像） -->
+      <aside class="w-60 shrink-0 bg-white/85 backdrop-blur border-r border-slate-200 flex flex-col sticky top-0 h-screen">
+        <div class="flex items-center gap-2.5 px-5 h-16 border-b border-slate-100">
+          <div class="brand-gradient w-9 h-9 rounded-xl flex items-center justify-center text-white text-lg shadow shadow-indigo-500/30">🎯</div>
+          <div class="leading-tight">
+            <div class="font-extrabold tracking-tight">Job Hunter</div>
+            <div class="text-[11px] text-slate-400">AI 求职助手</div>
+          </div>
+        </div>
+        <nav class="flex-1 p-3 space-y-1 overflow-y-auto" x-show="!onboarding">
+          <button @click="go('jobs')" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium"
+                  :class="tab==='jobs' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'">
+            <span class="text-lg w-5 text-center">🎯</span><span>今日匹配</span></button>
+          <button @click="go('favs')" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium"
+                  :class="tab==='favs' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'">
+            <span class="text-lg w-5 text-center">⭐</span><span>收藏</span></button>
+          <button @click="go('subs')" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium"
+                  :class="tab==='subs' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'">
+            <span class="text-lg w-5 text-center">🔔</span><span>我的订阅</span></button>
+          <button @click="go('dashboard')" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium"
+                  :class="tab==='dashboard' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'">
+            <span class="text-lg w-5 text-center">📈</span><span>就业趋势</span></button>
+          <button @click="go('referrals')" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium"
+                  :class="tab==='referrals' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'">
+            <span class="text-lg w-5 text-center">🤝</span><span>内推</span></button>
+          <button @click="go('profile')" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium"
+                  :class="tab==='profile' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'">
+            <span class="text-lg w-5 text-center">👤</span><span>我的画像</span></button>
+        </nav>
+        <div x-show="onboarding" class="flex-1 p-5 text-sm text-slate-400 leading-relaxed">完善画像后<br>解锁全部功能 ✨</div>
+        <!-- 用户 -->
+        <div class="border-t border-slate-100 p-3">
+          <div class="flex items-center gap-3 px-2 py-1.5">
+            <div class="w-9 h-9 rounded-full brand-gradient text-white flex items-center justify-center font-semibold uppercase shrink-0"
+                 x-text="((me && (me.name || me.email)) || '?').slice(0,1)"></div>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium text-slate-700 truncate" x-text="me && (me.name || me.email)"></div>
+            </div>
+          </div>
+          <button @click="logout()" class="mt-1 w-full text-sm text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2 text-left">退出登录</button>
+        </div>
+      </aside>
+
+      <!-- 主内容 -->
+      <main class="flex-1 min-w-0">
+        <div class="max-w-5xl mx-auto px-6 lg:px-10 py-8">
+
+      <!-- 注册后引导：先完善画像（可跳过） -->
+      <div x-show="onboarding" class="mb-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-sm p-5">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-lg">👋 欢迎！先花 1 分钟完善画像</h2>
+            <p class="text-sm text-blue-100 mt-1">匹配与 AI 分析都依赖你的画像。<b>上传简历可一键自动填充</b>，核对后保存即可。填得越具体，今日匹配越准。</p>
+          </div>
+          <button @click="skipOnboarding()" class="shrink-0 text-sm text-blue-100 hover:text-white underline whitespace-nowrap">稍后再说</button>
+        </div>
+      </div>
+
+      <!-- 软提示：已登录但画像为空时，引导去完善（非引导阶段、在今日匹配页） -->
+      <div x-show="!onboarding && tab==='jobs' && !profileFilled()" class="mb-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-sm flex items-center justify-between gap-3">
+        <span>你还没填画像，匹配结果会比较泛。<b>完善画像 / 上传简历</b>后会更精准。</span>
+        <button @click="go('profile')" class="shrink-0 bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-3 py-1.5 text-xs whitespace-nowrap">去完善</button>
+      </div>
+
+      <!-- 今日匹配 / 收藏（共用职位卡片） -->
+      <div x-show="tab==='jobs' || tab==='favs'" class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-baseline gap-2">
+            <h2 class="text-xl font-bold tracking-tight text-slate-900" x-text="tab==='favs' ? '我的收藏' : '今日匹配职位'"></h2>
+            <span class="text-sm text-slate-400" x-text="'· ' + ((tab==='favs' ? favorites : jobs).length) + ' 条'"></span>
+          </div>
+          <button @click="tab==='favs' ? loadFavorites() : loadJobs()" class="text-sm font-medium text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1">↻ 刷新</button>
+        </div>
+        <template x-if="tab==='jobs' && jobsLoaded && jobs.length===0">
+          <p class="text-sm text-slate-400 bg-white rounded-xl p-5">暂无匹配职位。请先在「我的订阅」创建订阅，系统会按条件为你匹配。</p>
+        </template>
+        <template x-if="tab==='favs' && favsLoaded && favorites.length===0">
+          <p class="text-sm text-slate-400 bg-white rounded-xl p-5">还没有收藏的职位。在「今日匹配」点职位右上角的 ☆ 即可收藏，日后回看。</p>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-2 items-start">
+        <template x-for="it in (tab==='favs' ? favorites : jobs)" :key="it.job.id">
+          <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/70 p-5 card-hover">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <template x-if="it.job.url">
+                  <a :href="it.job.url" target="_blank" class="font-medium text-slate-900 hover:text-blue-600" x-text="it.job.title"></a>
+                </template>
+                <template x-if="!it.job.url">
+                  <a :href="searchLink(it.job)" target="_blank" :title="'未抓到直达链接，点击在'+siteName(it.job.site)+'搜索该职位'" class="font-medium text-slate-900 hover:text-blue-600">
+                    <span x-text="it.job.title"></span>
+                    <span class="text-xs text-slate-400 font-normal">（搜索）</span>
+                  </a>
+                </template>
+                <div class="text-xs text-slate-500 mt-0.5">
+                  <span x-text="it.job.company"></span>
+                  <template x-if="it.job.salary"><span><span class="text-slate-300"> · </span><span class="text-emerald-600" x-text="it.job.salary"></span></span></template>
+                  <template x-if="it.job.location"><span><span class="text-slate-300"> · </span><span x-text="it.job.location"></span></span></template>
+                  <span class="text-slate-300"> · </span><span x-text="siteName(it.job.site)"></span>
+                </div>
+              </div>
+              <div class="flex items-start gap-2 shrink-0">
+                <template x-if="it.analysis">
+                  <span class="text-xs font-semibold px-2 py-1 rounded"
+                        :class="it.analysis.match_score>=80 ? 'bg-emerald-100 text-emerald-700' : (it.analysis.match_score>=60 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')"
+                        x-text="'匹配 ' + it.analysis.match_score"></span>
+                </template>
+                <button @click="toggleFav(it)" :title="it.favorited ? '取消收藏' : '收藏，稍后回看'"
+                        class="text-xl leading-none -mt-0.5"
+                        :class="it.favorited ? 'text-amber-400' : 'text-slate-300 hover:text-amber-400'"
+                        x-text="it.favorited ? '★' : '☆'"></button>
+              </div>
+            </div>
+            <template x-if="it.analysis && it.analysis.summary">
+              <p class="text-sm text-slate-600 mt-2" x-text="it.analysis.summary"></p>
+            </template>
+            <template x-if="it.note">
+              <p class="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1 mt-2">备注：<span x-text="it.note"></span></p>
+            </template>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <button @click="openDetail(it)" :disabled="it.detailLoading"
+                      class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                <span x-show="!it.detailLoading">获取详情 & AI 分析</span>
+                <span x-show="it.detailLoading">抓取分析中…</span>
+              </button>
+              <button @click="assist(it, 'cover_letter')" :disabled="it.assistLoading"
+                      class="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50">投递话术</button>
+              <button @click="assist(it, 'interview')" :disabled="it.assistLoading"
+                      class="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50">面试题</button>
+              <button @click="assist(it, 'skill_gap')" :disabled="it.assistLoading"
+                      class="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50">技能差距</button>
+              <button @click="assist(it, 'resume_tailor')" :disabled="it.assistLoading"
+                      class="text-xs px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50">简历优化</button>
+              <button @click="openChat(it.job.id, it.job.title)"
+                      class="text-xs px-3 py-1.5 rounded-lg border border-violet-200 text-violet-700 hover:bg-violet-50">问 AI</button>
+              <span x-show="it.assistLoading" class="text-xs text-slate-400">AI 生成中…</span>
+            </div>
+            <template x-if="it.assistText">
+              <div class="mt-3 bg-slate-50 rounded-lg p-3">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-xs font-semibold text-slate-500" x-text="assistLabel(it.assistKind)"></span>
+                  <button @click="copyText(it.assistText)" class="text-xs text-blue-600 hover:underline">复制</button>
+                </div>
+                <p class="text-sm text-slate-700 whitespace-pre-wrap" x-text="it.assistText"></p>
+              </div>
+            </template>
+          </div>
+        </template>
+        </div>
+      </div>
+
+      <!-- 趋势 Dashboard -->
+      <div x-show="tab==='dashboard'" class="space-y-4">
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+            <h2 class="font-semibold">就业趋势</h2>
+            <div class="flex items-center gap-2 text-sm">
+              <select x-model="trendCity" @change="loadTrends()" class="border rounded-lg px-2 py-1.5">
+                <option value="">全部城市</option>
+                <template x-for="c in (trends ? trends.cities : [])" :key="c"><option :value="c" x-text="c"></option></template>
+              </select>
+              <select x-model.number="trendDays" @change="loadTrends()" class="border rounded-lg px-2 py-1.5">
+                <option :value="7">近 7 天</option>
+                <option :value="30">近 30 天</option>
+                <option :value="90">近 90 天</option>
+              </select>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400">「招聘活跃度」= 每日新增职位数；「在招指数」为相对采样值（非绝对在招量）。数据自每日基础预热累积。</p>
+          <template x-if="trends && !trends.enough_data">
+            <p class="mt-2 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">数据积累中（不足 3 天），趋势仅供参考，随天数增加会更准确。</p>
+          </template>
+          <p x-show="trendsLoaded && trends && trends.daily_total.length===0" class="mt-2 text-sm text-slate-400">暂无趋势数据，基础预热运行后这里会逐日累积。</p>
+        </div>
+
+        <!-- 全市场活跃度折线 -->
+        <div x-show="trends && trends.daily_total.length>0" class="bg-white rounded-xl shadow-sm p-5">
+          <h3 class="font-semibold text-sm mb-3">全市场招聘活跃度
+            <span x-show="trends" class="text-xs text-slate-400 font-normal" x-text="trends ? ('（截至 ' + trends.as_of + (trends.city ? ' · ' + trends.city : ' · 全部城市') + '）') : ''"></span>
+          </h3>
+          <div class="relative" style="height:240px"><canvas id="trendTotalChart"></canvas></div>
+        </div>
+
+        <!-- 职位排行 -->
+        <div x-show="trends && trends.roles.length>0" class="bg-white rounded-xl shadow-sm p-5">
+          <h3 class="font-semibold text-sm mb-3">职位招聘趋势排行（按活跃度）</h3>
+          <div class="space-y-1.5">
+            <template x-for="(r,idx) in (trends ? trends.roles : [])" :key="r.role">
+              <button @click="selectTrendRole(r.role)" class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50"
+                      :class="trendRole===r.role ? 'bg-slate-50 ring-1 ring-blue-200' : ''">
+                <span class="text-xs text-slate-400 w-5 shrink-0" x-text="idx+1"></span>
+                <span class="text-sm text-slate-800 flex-1 truncate" x-text="r.role"></span>
+                <span class="text-xs text-slate-500 shrink-0">活跃 <b x-text="r.new_total"></b></span>
+                <span class="text-xs text-slate-400 shrink-0 hidden sm:inline">在招指数 <span x-text="r.scraped_total"></span></span>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded shrink-0"
+                      :class="r.direction==='up' ? 'bg-emerald-100 text-emerald-700' : (r.direction==='down' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500')"
+                      x-text="(r.direction==='up'?'▲ ':(r.direction==='down'?'▼ ':'— ')) + (r.change_pct>0?'+':'') + r.change_pct + '%'"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- 选中角色曲线 -->
+        <div x-show="trendRole" class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-sm" x-text="(trendRole||'') + ' · 趋势'"></h3>
+            <button @click="trendRole=null" class="text-xs text-slate-400 hover:text-slate-600">收起</button>
+          </div>
+          <div class="relative" style="height:220px"><canvas id="trendRoleChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- 我的订阅 -->
+      <div x-show="tab==='subs'" class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold">我的订阅</h2>
+          <button @click="newSub()" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-1.5 text-sm">+ 新建订阅</button>
+        </div>
+
+        <template x-if="subsLoaded && subs.length===0 && !showForm">
+          <p class="text-sm text-slate-400 bg-white rounded-xl p-5">还没有订阅，点右上角「新建订阅」开始。</p>
+        </template>
+
+        <!-- 订阅列表 -->
+        <div class="space-y-2" x-show="!showForm">
+          <template x-for="s in subs" :key="s.id">
+            <div class="bg-white rounded-xl shadow-sm p-4 text-sm" :class="s.enabled ? '' : 'opacity-60'">
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-slate-900" x-text="s.name || '(未命名订阅)'"></span>
+                <span class="text-[11px] px-1.5 py-0.5 rounded"
+                      :class="s.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'"
+                      x-text="s.enabled ? '已启用' : '已停用'"></span>
+              </div>
+              <div class="text-xs text-slate-500 mt-1">
+                <span x-text="'关键词: ' + (s.keywords || '不限')"></span>
+                <template x-if="s.location"><span><span class="text-slate-300">·</span> <span x-text="'地点: ' + s.location"></span></span></template>
+              </div>
+              <div class="text-xs text-slate-400 mt-0.5">
+                <span x-text="'时段: ' + (s.send_slots.length ? s.send_slots.map(slotName).join('、') : '无')"></span>
+                <span class="text-slate-300">·</span>
+                <span x-text="'匹配≥' + (s.min_score || 0)"></span>
+                <span class="text-slate-300">·</span>
+                <span x-text="s.last_sent_at ? ('上次发送 ' + fmtTime(s.last_sent_at)) : '尚未发送'"></span>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-2 text-xs">
+                <button @click="editSub(s)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded px-2 py-1">编辑</button>
+                <button @click="deleteSub(s.id)" :disabled="busy" class="bg-rose-100 hover:bg-rose-200 disabled:opacity-50 text-rose-700 rounded px-2 py-1">删除</button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- 订阅表单（新建/编辑） -->
+        <div x-show="showForm" class="space-y-4">
+          <div class="bg-white rounded-xl shadow-sm p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold" x-text="editingId ? '编辑订阅' : '新建订阅'"></h3>
+              <button @click="showForm=false" class="text-sm text-slate-400 hover:text-slate-600">返回列表</button>
+            </div>
+            <div class="space-y-3 text-sm">
+              <div>
+                <label class="block text-slate-500 mb-1">订阅名</label>
+                <input x-model="form.name" placeholder="如 C++ 上海" class="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-slate-500 mb-1">关键词（逗号分隔）</label>
+                  <input x-model="form.keywords" placeholder="C++, 后端" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block text-slate-500 mb-1">工作类型</label>
+                  <input x-model="form.job_type" placeholder="全职/实习/远程" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+              </div>
+
+              <!-- 推荐关键词 -->
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-slate-500">推荐关键词</label>
+                  <button type="button" @click="recommendKeywords()" :disabled="recoBusy"
+                          class="text-xs text-violet-700 hover:underline disabled:opacity-50">
+                    <span x-show="!recoBusy">✨ AI 按我的画像推荐</span>
+                    <span x-show="recoBusy">推荐中…</span>
+                  </button>
+                </div>
+                <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  <template x-for="g in groups" :key="g.group">
+                    <div>
+                      <div class="text-[11px] font-medium text-slate-400 mb-1">
+                        <span x-text="g.group"></span>
+                        <span x-show="g.note" class="text-slate-300" x-text="'· ' + g.note"></span>
+                      </div>
+                      <div class="flex flex-wrap gap-1.5">
+                        <template x-for="p in g.roles" :key="p.role">
+                          <button type="button" @click="applyPreset(p)"
+                                  class="text-xs px-2.5 py-1 rounded-full border border-slate-200 text-slate-600 hover:bg-blue-50 hover:border-blue-300"
+                                  :title="(p.en && p.en.length ? p.en.join(' / ') + '\n' : '') + '关键词: ' + p.keywords.join('、') + (p.skills && p.skills.length ? '\n核心技能: ' + p.skills.join('、') : '') + (p.levels && p.levels.length ? '\n级别: ' + p.levels.join(' → ') : '')"
+                                  x-text="p.role"></button>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+                <p x-show="recoRationale" class="text-xs text-violet-600 mt-1" x-text="recoRationale"></p>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-slate-500 mb-1">城市/地点</label>
+                  <input x-model="form.location" placeholder="上海" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block text-slate-500 mb-1">薪资下限(k)</label>
+                  <input x-model.number="form.salary_min" type="number" min="0" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block text-slate-500 mb-1">薪资上限(k)</label>
+                  <input x-model.number="form.salary_max" type="number" min="0" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm p-5">
+            <h3 class="font-semibold mb-1">发送设置</h3>
+            <div class="space-y-3 text-sm">
+              <div>
+                <label class="block text-slate-500 mb-1">发送时段（可多选）</label>
+                <div class="flex flex-wrap gap-2">
+                  <template x-for="sl in slots" :key="sl.value">
+                    <label class="inline-flex items-center gap-1 border rounded-lg px-3 py-1.5 cursor-pointer"
+                           :class="form.send_slots.includes(sl.value) ? 'bg-blue-50 border-blue-400' : ''">
+                      <input type="checkbox" :checked="form.send_slots.includes(sl.value)" @change="toggle('send_slots', sl.value)" />
+                      <span x-text="sl.name"></span>
+                    </label>
+                  </template>
+                </div>
+              </div>
+              <div class="flex items-center gap-4 flex-wrap">
+                <div>
+                  <label class="block text-slate-500 mb-1">最低匹配度(0=不限)</label>
+                  <input x-model.number="form.min_score" type="number" min="0" max="100" class="w-32 border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block text-slate-500 mb-1">每次最多条数</label>
+                  <input x-model.number="form.max_jobs" type="number" min="1" max="50" class="w-32 border rounded-lg px-3 py-2" />
+                </div>
+                <label class="inline-flex items-center gap-2 mt-5">
+                  <input type="checkbox" x-model="form.include_analysis" />
+                  <span>邮件附带 AI 分析建议</span>
+                </label>
+                <label class="inline-flex items-center gap-2 mt-5">
+                  <input type="checkbox" x-model="form.notify_empty" />
+                  <span>无匹配也发提醒</span>
+                </label>
+                <label class="inline-flex items-center gap-2 mt-5">
+                  <input type="checkbox" x-model="form.enabled" />
+                  <span>启用</span>
+                </label>
+              </div>
+              <p class="text-xs text-slate-400">将按 AI 匹配度从高到低，推送最匹配的前 N 条。本订阅不单独填画像时，匹配分析会使用「我的画像」。</p>
+            </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button @click="saveSub()" :disabled="busy"
+                    class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg px-5 py-2.5 text-sm font-medium"
+                    x-text="editingId ? '保存修改' : '创建订阅'"></button>
+            <button @click="showForm=false" class="bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg px-5 py-2.5 text-sm">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 内推 -->
+      <div x-show="tab==='referrals'" class="space-y-5">
+        <!-- 推荐给我的内推 -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="font-semibold">推荐给我的内推</h2>
+            <button @click="loadRefMatched()" class="text-sm text-blue-600 hover:underline">刷新</button>
+          </div>
+          <p class="text-xs text-slate-400 mb-2">根据你启用订阅的关键词/地点匹配，他人发布的内推。感兴趣可直接联系发布者。</p>
+          <template x-if="refMatchedLoaded && refMatched.length===0">
+            <p class="text-sm text-slate-400 bg-white rounded-xl p-4">暂无匹配的内推。可在下方搜索全部内推，或先创建/启用订阅。</p>
+          </template>
+          <div class="space-y-2">
+            <template x-for="r in refMatched" :key="'m'+r.id">
+              <div class="bg-white rounded-xl shadow-sm p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="font-medium text-slate-900">
+                      <template x-if="r.url"><a :href="r.url" target="_blank" class="hover:text-blue-600" x-text="r.title"></a></template>
+                      <template x-if="!r.url"><span x-text="r.title"></span></template>
+                    </div>
+                    <div class="text-xs text-slate-500 mt-0.5">
+                      <span x-show="r.company" x-text="r.company"></span>
+                      <template x-if="r.location"><span><span class="text-slate-300"> · </span><span x-text="r.location"></span></span></template>
+                      <template x-if="r.salary"><span><span class="text-slate-300"> · </span><span class="text-emerald-600" x-text="r.salary"></span></span></template>
+                    </div>
+                  </div>
+                  <span class="shrink-0 text-[11px] px-2 py-1 rounded bg-violet-100 text-violet-700">内推</span>
+                </div>
+                <p class="text-sm text-slate-600 mt-2 whitespace-pre-wrap" x-show="r.description" x-text="r.description"></p>
+                <div class="text-xs text-slate-500 mt-2 border-t pt-2">
+                  发布者：<span class="text-slate-700" x-text="r.publisher"></span>
+                  <span class="text-slate-300"> · </span>联系方式：<span class="text-blue-700 font-medium" x-text="r.contact"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- 搜索全部内推 -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <h2 class="font-semibold mb-2">搜索内推</h2>
+          <div class="flex gap-2 text-sm">
+            <input x-model="refQuery" placeholder="关键词：C++ / 公司名…" class="flex-1 border rounded-lg px-3 py-2" @keyup.enter="browseRefs()" />
+            <input x-model="refLoc" placeholder="地点" class="w-28 border rounded-lg px-3 py-2" @keyup.enter="browseRefs()" />
+            <button @click="browseRefs()" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 whitespace-nowrap">搜索</button>
+          </div>
+          <template x-if="refBrowseLoaded && refBrowse.length===0">
+            <p class="text-sm text-slate-400 mt-3">没有匹配的内推。</p>
+          </template>
+          <div class="space-y-2 mt-3">
+            <template x-for="r in refBrowse" :key="'b'+r.id">
+              <div class="border rounded-lg p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="font-medium text-slate-900">
+                      <template x-if="r.url"><a :href="r.url" target="_blank" class="hover:text-blue-600" x-text="r.title"></a></template>
+                      <template x-if="!r.url"><span x-text="r.title"></span></template>
+                    </div>
+                    <div class="text-xs text-slate-500 mt-0.5">
+                      <span x-show="r.company" x-text="r.company"></span>
+                      <template x-if="r.location"><span><span class="text-slate-300"> · </span><span x-text="r.location"></span></span></template>
+                      <template x-if="r.salary"><span><span class="text-slate-300"> · </span><span class="text-emerald-600" x-text="r.salary"></span></span></template>
+                    </div>
+                  </div>
+                  <span class="shrink-0 text-[11px] px-2 py-1 rounded bg-violet-100 text-violet-700">内推</span>
+                </div>
+                <p class="text-sm text-slate-600 mt-2 whitespace-pre-wrap" x-show="r.description" x-text="r.description"></p>
+                <div class="text-xs text-slate-500 mt-2 border-t pt-2">
+                  发布者：<span class="text-slate-700" x-text="r.publisher"></span>
+                  <span class="text-slate-300"> · </span>联系方式：<span class="text-blue-700 font-medium" x-text="r.contact"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- 我发布的内推 -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="font-semibold">我发布的内推</h2>
+            <button @click="newRef()" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-1.5 text-sm">+ 发布内推</button>
+          </div>
+
+          <!-- 发布/编辑表单 -->
+          <div x-show="showRefForm" class="bg-white rounded-xl shadow-sm p-5 mb-3">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold" x-text="refEditingId ? '编辑内推' : '发布内推'"></h3>
+              <button @click="showRefForm=false" class="text-sm text-slate-400 hover:text-slate-600">取消</button>
+            </div>
+            <div class="space-y-3 text-sm">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-slate-500 mb-1">职位名 *</label>
+                  <input x-model="refForm.title" placeholder="C++ 后端开发" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block text-slate-500 mb-1">公司</label>
+                  <input x-model="refForm.company" placeholder="某某科技" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-slate-500 mb-1">地点</label>
+                  <input x-model="refForm.location" placeholder="上海" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block text-slate-500 mb-1">薪资</label>
+                  <input x-model="refForm.salary" placeholder="25-40k" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block text-slate-500 mb-1">关键词（逗号分隔）</label>
+                  <input x-model="refForm.keywords" placeholder="c++, 后端" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1">联系方式<span class="text-slate-400">（留空则用你的邮箱）</span></label>
+                <input x-model="refForm.contact" placeholder="微信 / 邮箱 / 电话" class="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1">职位链接（可选）</label>
+                <input x-model="refForm.url" placeholder="https://…" class="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-1">职位描述 / 要求</label>
+                <textarea x-model="refForm.description" rows="3" placeholder="岗位职责、要求、内推流程……" class="w-full border rounded-lg px-3 py-2"></textarea>
+              </div>
+              <label class="inline-flex items-center gap-2">
+                <input type="checkbox" x-model="refForm.enabled" />
+                <span>对外可见（在招）</span>
+              </label>
+            </div>
+            <div class="flex gap-3 mt-4">
+              <button @click="saveRef()" :disabled="busy"
+                      class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg px-5 py-2.5 text-sm font-medium"
+                      x-text="refEditingId ? '保存修改' : '发布'"></button>
+              <button @click="showRefForm=false" class="bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg px-5 py-2.5 text-sm">取消</button>
+            </div>
+          </div>
+
+          <template x-if="refMineLoaded && refMine.length===0 && !showRefForm">
+            <p class="text-sm text-slate-400 bg-white rounded-xl p-4">你还没发布内推，点右上角「发布内推」分享一个机会。</p>
+          </template>
+          <div class="space-y-2">
+            <template x-for="r in refMine" :key="'me'+r.id">
+              <div class="bg-white rounded-xl shadow-sm p-4 text-sm" :class="r.enabled ? '' : 'opacity-60'">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-medium text-slate-900" x-text="r.title"></span>
+                  <span class="text-slate-400" x-show="r.company" x-text="'· ' + r.company"></span>
+                  <span class="text-[11px] px-1.5 py-0.5 rounded"
+                        :class="r.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'"
+                        x-text="r.enabled ? '在招' : '已下架'"></span>
+                </div>
+                <div class="text-xs text-slate-500 mt-1">
+                  <template x-if="r.location"><span x-text="r.location"></span></template>
+                  <template x-if="r.salary"><span><span class="text-slate-300"> · </span><span class="text-emerald-600" x-text="r.salary"></span></span></template>
+                  <template x-if="r.keywords"><span><span class="text-slate-300"> · </span><span x-text="r.keywords"></span></span></template>
+                </div>
+                <div class="flex gap-2 mt-2 text-xs">
+                  <button @click="editRef(r)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded px-2 py-1">编辑</button>
+                  <button @click="deleteRef(r.id)" :disabled="busy" class="bg-rose-100 hover:bg-rose-200 disabled:opacity-50 text-rose-700 rounded px-2 py-1">删除</button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- 我的画像 -->
+      <div x-show="tab==='profile'" class="space-y-4">
+        <!-- 展示态：已有画像、非编辑/引导时只读展示 -->
+        <div x-show="!profileEditing()" class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">我的画像</h2>
+            <button @click="editProfile=true" class="text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-1.5">修改</button>
+          </div>
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+            <template x-for="f in profileFields" :key="f.key">
+              <div :class="f.wide ? 'col-span-2' : ''">
+                <dt class="text-slate-400 text-xs" x-text="f.label"></dt>
+                <dd class="text-slate-800 whitespace-pre-wrap" x-text="(profile[f.key] || '').toString().trim() || '—'"></dd>
+              </div>
+            </template>
+          </dl>
+        </div>
+
+        <!-- 简历优化：诊断打分 + 经历改写（基于已存简历，无需重传） -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="font-semibold">简历优化</h2>
+            <span class="text-xs text-slate-400"
+                  x-text="resumeMeta && resumeMeta.has_resume ? ('已存简历：' + (resumeMeta.filename || '简历') + (resumeMeta.updated_at ? ' · ' + fmtTime(resumeMeta.updated_at) : '')) : '尚未上传简历'"></span>
+          </div>
+          <p x-show="!(resumeMeta && resumeMeta.has_resume)" class="text-xs text-slate-400 mb-3">
+            先在下方「上传简历自动填充」上传一次简历，即可使用诊断与经历改写（无需重复上传）。
+          </p>
+          <div class="flex flex-wrap items-center gap-2">
+            <button @click="diagnoseResume()" :disabled="diagBusy || !(resumeMeta && resumeMeta.has_resume)"
+                    class="text-sm bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg px-4 py-2">
+              <span x-show="!diagBusy">简历诊断</span><span x-show="diagBusy">诊断中…</span>
+            </button>
+            <button @click="rewriteResume()" :disabled="rewriteBusy || !(resumeMeta && resumeMeta.has_resume)"
+                    class="text-sm border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 rounded-lg px-4 py-2">
+              <span x-show="!rewriteBusy">经历改写</span><span x-show="rewriteBusy">改写中…</span>
+            </button>
+            <span x-show="diagBusy || rewriteBusy" class="text-xs text-slate-400">AI 处理中，约需 10–30 秒…</span>
+          </div>
+
+          <!-- 诊断结果 -->
+          <template x-if="diagResult">
+            <div class="mt-4 border-t pt-4">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="inline-flex items-center justify-center w-12 h-12 rounded-full text-white font-bold shrink-0"
+                      :class="diagResult.overall_score>=75?'bg-emerald-600':(diagResult.overall_score>=50?'bg-amber-500':'bg-rose-500')"
+                      x-text="diagResult.overall_score"></span>
+                <p class="text-sm text-slate-700 flex-1" x-text="diagResult.summary"></p>
+              </div>
+              <template x-for="sec in diagResult.sections" :key="sec.name">
+                <div class="mt-3 bg-slate-50 rounded-lg p-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-700" x-text="sec.name"></span>
+                    <span class="text-xs text-slate-500" x-text="sec.score + ' 分'"></span>
+                  </div>
+                  <template x-if="sec.issues && sec.issues.length">
+                    <ul class="mt-1 list-disc list-inside text-xs text-rose-600 space-y-0.5">
+                      <template x-for="(s,i) in sec.issues" :key="i"><li x-text="s"></li></template>
+                    </ul>
+                  </template>
+                  <template x-if="sec.suggestions && sec.suggestions.length">
+                    <ul class="mt-1 list-disc list-inside text-xs text-slate-600 space-y-0.5">
+                      <template x-for="(s,i) in sec.suggestions" :key="i"><li x-text="s"></li></template>
+                    </ul>
+                  </template>
+                </div>
+              </template>
+              <template x-if="diagResult.quick_wins && diagResult.quick_wins.length">
+                <div class="mt-3">
+                  <p class="text-xs font-semibold text-slate-500 mb-1">立刻能改（性价比最高）</p>
+                  <ul class="list-disc list-inside text-xs text-slate-700 space-y-0.5">
+                    <template x-for="(s,i) in diagResult.quick_wins" :key="i"><li x-text="s"></li></template>
+                  </ul>
+                </div>
+              </template>
+              <template x-if="diagResult.keywords_missing && diagResult.keywords_missing.length">
+                <div class="mt-3 flex flex-wrap gap-1.5 items-center">
+                  <span class="text-xs font-semibold text-slate-500">建议补充关键词：</span>
+                  <template x-for="(k,i) in diagResult.keywords_missing" :key="i">
+                    <span class="text-xs bg-amber-50 text-amber-700 rounded px-2 py-0.5" x-text="k"></span>
+                  </template>
+                </div>
+              </template>
+              <template x-if="diagResult.ats_issues && diagResult.ats_issues.length">
+                <div class="mt-3">
+                  <p class="text-xs font-semibold text-slate-500 mb-1">ATS / 规范性问题</p>
+                  <ul class="list-disc list-inside text-xs text-slate-600 space-y-0.5">
+                    <template x-for="(s,i) in diagResult.ats_issues" :key="i"><li x-text="s"></li></template>
+                  </ul>
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <!-- 改写结果 -->
+          <template x-if="rewriteResult && rewriteResult.pairs && rewriteResult.pairs.length">
+            <div class="mt-4 border-t pt-4 space-y-3">
+              <p class="text-xs font-semibold text-slate-500">经历改写（原文 → 改写）</p>
+              <template x-for="(p,i) in rewriteResult.pairs" :key="i">
+                <div class="bg-slate-50 rounded-lg p-3">
+                  <p x-show="p.original" class="text-xs text-slate-400 line-through whitespace-pre-wrap" x-text="p.original"></p>
+                  <div class="flex items-start justify-between gap-2 mt-1">
+                    <p class="text-sm text-slate-800 whitespace-pre-wrap flex-1" x-text="p.improved"></p>
+                    <button @click="copyText(p.improved)" class="text-xs text-blue-600 hover:underline shrink-0">复制</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- 编辑态：引导 / 点了修改 / 画像为空 -->
+        <div x-show="profileEditing()" class="bg-white rounded-xl shadow-sm p-5">
+          <h2 class="font-semibold mb-1">上传简历自动填充</h2>
+          <p class="text-xs text-slate-400 mb-3">上传 PDF/Word 简历或粘贴简历文本，AI 会自动解析填入下方画像表单，核对后点「保存画像」即可。</p>
+          <div class="space-y-3 text-sm">
+            <div>
+              <label class="block text-slate-500 mb-1">选择简历文件（.pdf / .docx / .txt）</label>
+              <input type="file" accept=".pdf,.docx,.txt" @change="resumeFile = $event.target.files[0]"
+                     class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700 hover:file:bg-blue-100" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">或粘贴简历文本</label>
+              <textarea x-model="resumeText" rows="4" placeholder="把简历内容粘贴到这里……"
+                        class="w-full border rounded-lg px-3 py-2"></textarea>
+            </div>
+            <button @click="parseResume()" :disabled="resumeBusy"
+                    class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg px-5 py-2.5 text-sm font-medium">
+              <span x-show="!resumeBusy">AI 解析并填充</span>
+              <span x-show="resumeBusy">解析中…</span>
+            </button>
+          </div>
+        </div>
+        <div x-show="profileEditing()" class="bg-white rounded-xl shadow-sm p-5">
+          <h2 class="font-semibold mb-1">我的画像</h2>
+          <p class="text-xs text-slate-400 mb-3">用于 AI 个性化匹配与建议。订阅未单独填画像时，默认用这里的画像。填得越具体，匹配越准。</p>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <label class="block text-slate-500 mb-1">工作年限</label>
+              <select x-model="profile.years" class="w-full border rounded-lg px-3 py-2">
+                <option value="">不限</option>
+                <option>应届</option><option>1年以内</option><option>1-3年</option>
+                <option>3-5年</option><option>5-10年</option><option>10年以上</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">学历</label>
+              <select x-model="profile.education" class="w-full border rounded-lg px-3 py-2">
+                <option value="">不限</option><option>大专</option><option>本科</option>
+                <option>硕士</option><option>博士</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">当前职位</label>
+              <input x-model="profile.current_role" placeholder="C++ 开发工程师" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">目标职位</label>
+              <input x-model="profile.target_role" placeholder="高级/资深 C++" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div class="col-span-2">
+              <label class="block text-slate-500 mb-1">技能（逗号分隔）</label>
+              <input x-model="profile.skills" placeholder="C++, Linux, 多线程, 网络编程" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">行业</label>
+              <input x-model="profile.industry" placeholder="嵌入式/通信/金融" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">期望薪资</label>
+              <input x-model="profile.expected_salary" placeholder="25-35k" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">工作模式</label>
+              <select x-model="profile.work_mode" class="w-full border rounded-lg px-3 py-2">
+                <option value="">不限</option><option>远程</option><option>现场</option><option>混合</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">是否可异地</label>
+              <select x-model="profile.relocate" class="w-full border rounded-lg px-3 py-2">
+                <option value="">不限</option><option>可异地</option><option>不可异地</option><option>可考虑</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">公司规模偏好</label>
+              <select x-model="profile.company_size" class="w-full border rounded-lg px-3 py-2">
+                <option value="">不限</option><option>初创</option><option>中型</option>
+                <option>大型</option><option>外企</option><option>国企</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">想避开（逗号分隔）</label>
+              <input x-model="profile.avoid" placeholder="外包, 996" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div class="col-span-2">
+              <label class="block text-slate-500 mb-1">职业目标（自由描述）</label>
+              <textarea x-model="profile.goal" rows="2" placeholder="希望往架构方向发展，关注技术深度……" class="w-full border rounded-lg px-3 py-2"></textarea>
+            </div>
+          </div>
+          <div class="mt-4 flex items-center gap-3">
+            <button @click="saveProfile()" :disabled="busy"
+                    class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg px-5 py-2.5 text-sm font-medium"
+                    x-text="onboarding ? '保存并开始' : '保存画像'"></button>
+            <button x-show="onboarding" @click="skipOnboarding()"
+                    class="text-sm text-slate-400 hover:text-slate-600">稍后再说</button>
+            <button x-show="!onboarding && profileFilled()" @click="cancelEditProfile()"
+                    class="text-sm text-slate-400 hover:text-slate-600">取消</button>
+          </div>
+        </div>
+      </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 职位详情 & AI 分析 全屏覆盖层 -->
+    <div x-show="detail" x-transition class="fixed inset-0 z-[60] bg-black/40 flex items-start justify-center overflow-y-auto py-6 px-3"
+         @click.self="detail=null" style="display:none">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-auto" x-show="detail">
+        <template x-if="detail">
+          <div>
+            <div class="flex items-start justify-between gap-3 p-5 border-b">
+              <div class="min-w-0">
+                <a :href="detail.job.url" target="_blank" class="font-semibold text-lg text-slate-900 hover:text-blue-600 break-words" x-text="detail.job.title"></a>
+                <div class="text-xs text-slate-500 mt-1">
+                  <span x-text="detail.job.company"></span>
+                  <template x-if="detail.job.salary"><span><span class="text-slate-300"> · </span><span class="text-emerald-600" x-text="detail.job.salary"></span></span></template>
+                  <template x-if="detail.job.location"><span><span class="text-slate-300"> · </span><span x-text="detail.job.location"></span></span></template>
+                  <span class="text-slate-300"> · </span><span x-text="siteName(detail.job.site)"></span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <template x-if="detail.analysis">
+                  <span class="text-xs font-semibold px-2 py-1 rounded"
+                        :class="detail.analysis.match_score>=80 ? 'bg-emerald-100 text-emerald-700' : (detail.analysis.match_score>=60 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')"
+                        x-text="'匹配 ' + detail.analysis.match_score"></span>
+                </template>
+                <button @click="detail=null" class="text-slate-400 hover:text-slate-600 text-2xl leading-none px-1" title="关闭">×</button>
+              </div>
+            </div>
+            <div class="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <template x-if="detail.loading">
+                <div class="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+                  <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                  <span>正在抓取完整 JD 并做 AI 分析，首次约需 20–60 秒…</span>
+                </div>
+              </template>
+              <template x-if="detail.analysis && detail.analysis.summary">
+                <div>
+                  <div class="text-xs font-semibold text-slate-500 mb-1">AI 匹配小结</div>
+                  <p class="text-sm text-slate-700 whitespace-pre-wrap" x-text="detail.analysis.summary"></p>
+                </div>
+              </template>
+              <template x-if="detail.analysis && detail.analysis.advice">
+                <div>
+                  <div class="text-xs font-semibold text-slate-500 mb-1">投递建议</div>
+                  <p class="text-sm text-slate-700 whitespace-pre-wrap" x-text="detail.analysis.advice"></p>
+                </div>
+              </template>
+              <template x-if="detail.analysis && detail.analysis.skills_to_learn">
+                <div>
+                  <div class="text-xs font-semibold text-slate-500 mb-1">建议补强技能</div>
+                  <p class="text-sm text-slate-700 whitespace-pre-wrap" x-text="detail.analysis.skills_to_learn"></p>
+                </div>
+              </template>
+              <div>
+                <div class="text-xs font-semibold text-slate-500 mb-1">完整职位描述（JD）</div>
+                <p class="text-sm text-slate-700 whitespace-pre-wrap" x-text="detail.job.description || '（该职位暂未抓到完整描述）'"></p>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- AI 助手悬浮气泡（仅登录后） -->
+    <div x-show="me" class="fixed bottom-6 right-6 z-50">
+      <!-- 折叠时的按钮：机器人图标 + 文字标签，一眼看懂 -->
+      <button x-show="!chatOpen" @click="openChat()"
+              class="group flex items-center gap-2.5 h-14 pl-4 pr-5 rounded-full text-white shadow-xl shadow-violet-500/30 hover:-translate-y-0.5"
+              style="background:linear-gradient(135deg,#7c3aed,#4f46e5)"
+              title="AI 求职助手">
+        <svg class="w-7 h-7 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" />
+          <path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
+        </svg>
+        <span class="font-semibold text-[15px] whitespace-nowrap">AI 助手</span>
+      </button>
+
+      <!-- 展开的聊天面板：更大，减少滚动 -->
+      <div x-show="chatOpen" x-transition x-cloak
+           class="w-[34rem] max-w-[calc(100vw-3rem)] h-[80vh] max-h-[46rem] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden ring-1 ring-slate-200">
+        <!-- 头部 -->
+        <div class="text-white px-5 py-3.5 flex items-center justify-between shrink-0" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" />
+                <path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <div class="font-semibold text-[15px]">AI 求职助手</div>
+              <div class="text-xs text-violet-200 truncate" x-text="chatJobTitle ? ('正在讨论：' + chatJobTitle) : '建订阅 · 推荐关键词 · 求职答疑'"></div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button @click="clearChat()" class="text-violet-200 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10" title="清空对话">清空</button>
+            <button @click="chatOpen=false" class="text-violet-200 hover:text-white text-xl leading-none px-1.5 rounded hover:bg-white/10" title="收起">×</button>
+          </div>
+        </div>
+
+        <!-- 消息列表 -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50" x-ref="chatBox">
+          <template x-for="(m, i) in chatMessages" :key="i">
+            <div :class="m.role==='user' ? 'flex justify-end' : 'flex justify-start'">
+              <div class="max-w-[88%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-words"
+                   :class="m.role==='user' ? 'text-white rounded-br-md' : 'bg-white text-slate-700 shadow-sm ring-1 ring-slate-100 rounded-bl-md'"
+                   :style="m.role==='user' ? 'background:linear-gradient(135deg,#7c3aed,#4f46e5)' : ''"
+                   x-text="m.content"></div>
+            </div>
+          </template>
+          <div x-show="chatBusy" class="flex justify-start">
+            <div class="bg-white text-slate-400 shadow-sm ring-1 ring-slate-100 rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px]">思考中…</div>
+          </div>
+        </div>
+
+        <!-- 输入区 -->
+        <div class="p-3 border-t bg-white shrink-0">
+          <div x-show="chatJobTitle" class="flex items-center justify-between text-xs text-violet-600 mb-2 px-1">
+            <span class="truncate" x-text="'已带上职位上下文：' + chatJobTitle"></span>
+            <button @click="chatJobId=null; chatJobTitle=''" class="hover:underline shrink-0 ml-2">移除</button>
+          </div>
+          <div class="flex items-end gap-2">
+            <textarea x-model="chatInput" rows="2" placeholder="例如：帮我订个北京后端岗，25k 以上"
+                      @keydown.enter.prevent="sendChat()"
+                      class="flex-1 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[15px] resize-none focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-300"></textarea>
+            <button @click="sendChat()" :disabled="chatBusy || !chatInput.trim()"
+                    class="text-white rounded-xl px-5 py-2.5 text-sm font-medium shrink-0 disabled:opacity-40 hover:opacity-95"
+                    style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 图表实例放在 Alpine 响应式状态之外，避免被深度代理导致 Chart.js 异常
+    let _trendTotalChart = null, _trendRoleChart = null;
+    function emptyProfile() {
+      return { years: '', education: '', current_role: '', target_role: '', skills: '',
+               industry: '', expected_salary: '', work_mode: '', relocate: '',
+               company_size: '', avoid: '', goal: '' };
+    }
+    function emptyForm() {
+      return { name: '', sites: [], keywords: '', job_type: '', location: '',
+               salary_min: 0, salary_max: 0, profile: {},
+               send_slots: ['daily_09'], min_score: 0, include_analysis: true,
+               max_jobs: 10, notify_empty: false, enabled: true };
+    }
+    function emptyRef() {
+      return { title: '', company: '', location: '', salary: '', keywords: '',
+               description: '', contact: '', url: '', enabled: true };
+    }
+    function portalApp() {
+      return {
+        me: null,
+        authTab: 'login',
+        authForm: { email: '', password: '', name: '' },
+        tab: 'jobs',
+        busy: false,
+        notice: '', noticeErr: false,
+        sites: [], slots: [],
+        jobs: [], jobsLoaded: false,
+        favorites: [], favsLoaded: false,
+        subs: [], subsLoaded: false,
+        trends: null, trendsLoaded: false, trendDays: 30, trendCity: '', trendRole: null,
+        showForm: false, editingId: null,
+        form: emptyForm(),
+        profile: emptyProfile(),
+        resumeFile: null, resumeText: '', resumeBusy: false,
+        resumeMeta: null, diagBusy: false, diagResult: null, rewriteBusy: false, rewriteResult: null,
+        refMatched: [], refMatchedLoaded: false,
+        refBrowse: [], refBrowseLoaded: false,
+        refMine: [], refMineLoaded: false,
+        refQuery: '', refLoc: '',
+        showRefForm: false, refEditingId: null,
+        refForm: emptyRef(),
+        presets: [], groups: [], recoBusy: false, recoRationale: '',
+        chatOpen: false, chatMessages: [], chatInput: '',
+        chatBusy: false, chatJobId: null, chatJobTitle: '',
+        detail: null,
+        onboarding: false,
+        editProfile: false,
+        profileFields: [
+          { key: 'years', label: '工作年限' },
+          { key: 'education', label: '学历' },
+          { key: 'current_role', label: '当前职位' },
+          { key: 'target_role', label: '目标职位' },
+          { key: 'skills', label: '技能', wide: true },
+          { key: 'industry', label: '行业' },
+          { key: 'expected_salary', label: '期望薪资' },
+          { key: 'work_mode', label: '工作模式' },
+          { key: 'relocate', label: '是否可异地' },
+          { key: 'company_size', label: '公司规模偏好' },
+          { key: 'avoid', label: '想避开' },
+          { key: 'goal', label: '职业目标', wide: true },
+        ],
+
+        async init() {
+          await this.loadSites();
+          this.loadPresets();
+          this.restoreChat();
+          await this.checkAuth();
+        },
+        say(msg, err = false) { this.notice = msg; this.noticeErr = err; setTimeout(() => this.notice = '', 5000); },
+        toggle(field, val) {
+          const arr = this.form[field];
+          const i = arr.indexOf(val);
+          if (i >= 0) arr.splice(i, 1); else arr.push(val);
+        },
+        siteName(v) { const s = this.sites.find(x => x.value === v); return s ? s.name : v; },
+        sortDirectFirst(list) {
+          // 有直达链接的排前面，空链接（只能退化到搜索）的排靠后，尽量少让用户点到非直达项。
+          // Array.sort 在现代引擎是稳定排序，组内相对顺序（匹配/时间）保持不变。
+          return [...list].sort((a, b) => (a.job && a.job.url ? 0 : 1) - (b.job && b.job.url ? 0 : 1));
+        },
+        searchLink(job) {
+          // 没有直达 URL 时（多见于 51job 列表级回退），退化为原站搜索链接，避免空 href 开新标签即闪退
+          if (job && job.url) return job.url;
+          const q = encodeURIComponent(((job && job.title) || '').trim());
+          switch (job && job.site) {
+            case 'job51': return 'https://we.51job.com/pc/search?keyword=' + q;
+            case 'zhilian': return 'https://sou.zhaopin.com/?kw=' + q;
+            case 'boss': return 'https://www.zhipin.com/web/geek/job?query=' + q;
+            case 'liepin': return 'https://www.liepin.com/zhaopin/?key=' + q;
+            default: return 'https://www.baidu.com/s?wd=' + q;
+          }
+        },
+        slotName(v) { const s = this.slots.find(x => x.value === v); return s ? s.name : v; },
+        fmtTime(t) { if (!t) return ''; try { return new Date(t).toLocaleString('zh-CN', { hour12: false }); } catch (e) { return t; } },
+
+        async loadSites() {
+          try { const r = await fetch('/api/subscribe/sites'); const d = await r.json(); this.sites = d.sites; this.slots = d.slots; }
+          catch (e) { /* ignore */ }
+        },
+        async checkAuth() {
+          try {
+            const r = await fetch('/api/auth/me');
+            const d = await r.json();
+            if (d.authenticated) { this.me = d.user; await this.loadAll(); }
+            else { this.me = null; }
+          } catch (e) { this.me = null; }
+        },
+        async loadAll() {
+          await Promise.all([this.loadJobs(), this.loadSubs(), this.loadProfile(), this.loadResumeMeta()]);
+        },
+        go(t) {
+          this.tab = t;
+          if (t === 'jobs') this.loadJobs();
+          if (t === 'favs') this.loadFavorites();
+          if (t === 'subs') this.loadSubs();
+          if (t === 'dashboard') this.loadTrends();
+          if (t === 'referrals') { this.loadRefMatched(); this.loadRefMine(); }
+        },
+
+        async loadTrends() {
+          try {
+            const r = await fetch('/api/trends/overview?days=' + this.trendDays + '&city=' + encodeURIComponent(this.trendCity || ''));
+            if (!r.ok) return;
+            this.trends = await r.json();
+            this.trendsLoaded = true;
+            if (this.trendRole && !this.trends.roles.some(x => x.role === this.trendRole)) this.trendRole = null;
+            this.$nextTick(() => this.renderTrendCharts());
+          } catch (e) { /* 忽略，UI 保持空态 */ }
+        },
+        _lineCfg(labels, datasets) {
+          return {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false },
+              plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
+              scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+            },
+          };
+        },
+        renderTrendCharts() {
+          if (!this.trends) return;
+          const dt = this.trends.daily_total || [];
+          const labels = dt.map(p => p.date.slice(5));
+          if (_trendTotalChart) { _trendTotalChart.destroy(); _trendTotalChart = null; }
+          const el = document.getElementById('trendTotalChart');
+          if (el && dt.length) {
+            _trendTotalChart = new Chart(el, this._lineCfg(labels, [
+              { label: '招聘活跃度(新增)', data: dt.map(p => p.new), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.1)', tension: .3, fill: true },
+              { label: '在招指数', data: dt.map(p => p.scraped), borderColor: '#94a3b8', borderDash: [4, 4], tension: .3, fill: false },
+            ]));
+          }
+          this.renderRoleChart();
+        },
+        selectTrendRole(role) {
+          this.trendRole = (this.trendRole === role) ? null : role;
+          this.$nextTick(() => this.renderRoleChart());
+        },
+        renderRoleChart() {
+          if (_trendRoleChart) { _trendRoleChart.destroy(); _trendRoleChart = null; }
+          if (!this.trendRole || !this.trends) return;
+          const r = (this.trends.roles || []).find(x => x.role === this.trendRole);
+          if (!r) return;
+          const el = document.getElementById('trendRoleChart');
+          if (!el) return;
+          const labels = r.series.map(p => p.date.slice(5));
+          _trendRoleChart = new Chart(el, this._lineCfg(labels, [
+            { label: '招聘活跃度(新增)', data: r.series.map(p => p.new), borderColor: '#4f46e5', backgroundColor: 'rgba(79,70,229,.1)', tension: .3, fill: true },
+            { label: '在招指数', data: r.series.map(p => p.scraped), borderColor: '#94a3b8', borderDash: [4, 4], tension: .3, fill: false },
+          ]));
+        },
+
+        async login() {
+          if (!this.authForm.email.includes('@')) { this.say('请填写正确邮箱', true); return; }
+          this.busy = true;
+          try {
+            const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: this.authForm.email, password: this.authForm.password }) });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '登录失败', true); return; }
+            this.me = d.user; this.authForm.password = ''; this.say('欢迎回来'); await this.loadAll();
+          } catch (e) { this.say('网络错误', true); } finally { this.busy = false; }
+        },
+        async register() {
+          if (!this.authForm.email.includes('@')) { this.say('请填写正确邮箱', true); return; }
+          if ((this.authForm.password || '').length < 6) { this.say('密码至少 6 位', true); return; }
+          this.busy = true;
+          try {
+            const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.authForm) });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '注册失败', true); return; }
+            this.me = d.user; this.authForm.password = '';
+            await this.loadAll();
+            // 新用户：进入“完善画像”引导（首推上传简历，可跳过）
+            this.onboarding = true; this.tab = 'profile';
+            this.say('注册成功，先完善画像匹配更准');
+          } catch (e) { this.say('网络错误', true); } finally { this.busy = false; }
+        },
+        async logout() {
+          try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+          this.me = null; this.jobs = []; this.subs = []; this.tab = 'jobs'; this.onboarding = false; this.editProfile = false;
+        },
+
+        async loadJobs() {
+          try {
+            const r = await fetch('/api/me/jobs'); if (!r.ok) return;
+            const rows = await r.json();
+            // 显式初始化交互状态，保证按钮初始可点、避免 Alpine 对未声明属性的响应式漏更新
+            const mapped = rows.map(it => ({ ...it, detailLoading: false, detailLoaded: false, assistLoading: false, assistText: '', assistKind: '' }));
+            this.jobs = this.sortDirectFirst(mapped);
+            this.jobsLoaded = true;
+          } catch (e) {}
+        },
+        async loadFavorites() {
+          try {
+            const r = await fetch('/api/me/favorites'); if (!r.ok) return;
+            const rows = await r.json();
+            const mapped = rows.map(it => ({ ...it, detailLoading: false, detailLoaded: false, assistLoading: false, assistText: '', assistKind: '' }));
+            this.favorites = this.sortDirectFirst(mapped);
+            this.favsLoaded = true;
+          } catch (e) {}
+        },
+        async toggleFav(it) {
+          const id = it.job.id;
+          try {
+            if (it.favorited) {
+              const r = await fetch('/api/me/jobs/' + id + '/favorite', { method: 'DELETE' });
+              if (!r.ok) { this.say('操作失败', true); return; }
+              it.favorited = false;
+              const j = this.jobs.find(x => x.job.id === id); if (j) j.favorited = false;
+              if (this.tab === 'favs') this.favorites = this.favorites.filter(x => x.job.id !== id);
+              this.say('已取消收藏');
+            } else {
+              const r = await fetch('/api/me/jobs/' + id + '/favorite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: '' }) });
+              if (!r.ok) { this.say('操作失败', true); return; }
+              it.favorited = true;
+              const j = this.jobs.find(x => x.job.id === id); if (j) j.favorited = true;
+              this.say('已收藏，可在「收藏」里回看');
+            }
+          } catch (e) { this.say('网络错误', true); }
+        },
+        async openDetail(it) {
+          // 已抓过且分析过的直接展示缓存，避免重复花钱
+          if (it.detailLoaded) { this.detail = { job: it.job, analysis: it.analysis, loading: false }; return; }
+          it.detailLoading = true;
+          // 立即弹出详情层并显示进度，避免“按钮变灰、看不到反馈”的错觉
+          this.detail = { job: it.job, analysis: it.analysis || null, loading: true };
+          // 首次抓取会现起浏览器抓详情页 + 调 LLM，给足时间但设上限，杜绝永久卡灰
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 150000);
+          try {
+            const r = await fetch('/api/me/jobs/' + it.job.id + '/detail', { method: 'POST', signal: ctrl.signal });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '抓取/分析失败', true); if (this.detail) this.detail.loading = false; return; }
+            it.job = d.job; it.analysis = d.analysis; it.detailLoaded = true;
+            this.detail = { job: d.job, analysis: d.analysis, loading: false };
+          } catch (e) {
+            this.say(e.name === 'AbortError' ? '抓取超时（站点/代理较慢），请稍后重试' : '网络错误', true);
+            this.detail = null;
+          } finally { clearTimeout(timer); it.detailLoading = false; }
+        },
+        assistLabel(kind) { return { cover_letter: '投递话术', interview: '面试题', skill_gap: '技能差距', resume_tailor: '简历优化（按岗位定制）' }[kind] || ''; },
+        async assist(it, kind) {
+          it.assistLoading = true; it.assistKind = kind;
+          try {
+            const r = await fetch('/api/me/jobs/' + it.job.id + '/assist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind }) });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '生成失败', true); return; }
+            it.assistText = d.text || '';
+          } catch (e) { this.say('网络错误', true); } finally { it.assistLoading = false; }
+        },
+        async copyText(t) {
+          try { await navigator.clipboard.writeText(t || ''); this.say('已复制'); }
+          catch (e) { this.say('复制失败，请手动选择', true); }
+        },
+        async loadSubs() {
+          try { const r = await fetch('/api/me/subscriptions'); if (!r.ok) return; this.subs = await r.json(); this.subsLoaded = true; }
+          catch (e) {}
+        },
+        async loadProfile() {
+          try { const r = await fetch('/api/me/profile'); if (!r.ok) return; const d = await r.json(); this.profile = Object.assign(emptyProfile(), d.profile || {}); }
+          catch (e) {}
+        },
+        async loadResumeMeta() {
+          try { const r = await fetch('/api/me/resume'); if (!r.ok) return; this.resumeMeta = await r.json(); }
+          catch (e) {}
+        },
+        async diagnoseResume() {
+          this.diagBusy = true;
+          try {
+            const r = await fetch('/api/me/resume/diagnose', { method: 'POST' });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '诊断失败', true); return; }
+            this.diagResult = d;
+          } catch (e) { this.say('网络错误', true); } finally { this.diagBusy = false; }
+        },
+        async rewriteResume() {
+          this.rewriteBusy = true;
+          try {
+            const r = await fetch('/api/me/resume/rewrite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '改写失败', true); return; }
+            this.rewriteResult = d;
+          } catch (e) { this.say('网络错误', true); } finally { this.rewriteBusy = false; }
+        },
+
+        // ----- 关键词推荐 -----
+        async loadPresets() {
+          try { const r = await fetch('/api/keyword-presets'); if (!r.ok) return; const d = await r.json(); this.presets = d.presets || []; this.groups = d.groups || []; }
+          catch (e) {}
+        },
+        mergeKeywords(extra) {
+          const cur = (this.form.keywords || '').split(',').map(s => s.trim()).filter(Boolean);
+          for (const k of extra) { if (k && !cur.includes(k)) cur.push(k); }
+          this.form.keywords = cur.join(', ');
+        },
+        applyPreset(p) {
+          this.recoRationale = '';
+          // 点击角色＝用该角色的关键词替换（每次点击都可见地切换）。
+          // 注意：不要把角色名写进"工作类型"——该字段表示工作性质(全职/实习/远程)，
+          // 角色语义已由关键词覆盖；写进去会被匹配引擎当成硬过滤把职位都筛掉。
+          this.form.keywords = (p.keywords || []).join(', ');
+        },
+        async recommendKeywords() {
+          this.recoBusy = true; this.recoRationale = '';
+          try {
+            const r = await fetch('/api/me/keywords/recommend', { method: 'POST' });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '推荐失败', true); return; }
+            this.mergeKeywords(d.keywords || []);
+            this.recoRationale = d.rationale ? ('AI 推荐：' + d.rationale) : 'AI 已填入推荐关键词';
+          } catch (e) { this.say('网络错误', true); } finally { this.recoBusy = false; }
+        },
+
+        // ----- AI 助手对话 -----
+        restoreChat() {
+          try { const s = localStorage.getItem('jh_chat'); if (s) this.chatMessages = JSON.parse(s) || []; } catch (e) {}
+        },
+        persistChat() {
+          try { localStorage.setItem('jh_chat', JSON.stringify(this.chatMessages.slice(-30))); } catch (e) {}
+        },
+        scrollChat() {
+          this.$nextTick(() => { const el = this.$refs.chatBox; if (el) el.scrollTop = el.scrollHeight; });
+        },
+        openChat(jobId, jobTitle) {
+          this.chatOpen = true;
+          if (jobId) { this.chatJobId = jobId; this.chatJobTitle = jobTitle || ('职位 #' + jobId); }
+          if (!this.chatMessages.length) {
+            this.chatMessages.push({ role: 'assistant', content: '你好！我是你的求职助手。我可以帮你：\n· 创建/修改/删除职位订阅（如「订个北京后端岗，25k以上，每天早9点发」）\n· 按你的画像推荐关键词\n· 解答岗位相关问题\n说说看你想做什么？' });
+          }
+          this.scrollChat();
+        },
+        clearChat() {
+          this.chatMessages = []; this.chatJobId = null; this.chatJobTitle = '';
+          try { localStorage.removeItem('jh_chat'); } catch (e) {}
+        },
+        async sendChat() {
+          const text = (this.chatInput || '').trim();
+          if (!text || this.chatBusy) return;
+          this.chatMessages.push({ role: 'user', content: text });
+          this.chatInput = ''; this.chatBusy = true; this.scrollChat();
+          try {
+            const payload = { messages: this.chatMessages.map(m => ({ role: m.role, content: m.content })), job_id: this.chatJobId };
+            const r = await fetch('/api/me/assistant/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const d = await r.json();
+            if (!r.ok) { this.chatMessages.push({ role: 'assistant', content: d.detail || 'AI 暂时不可用，请稍后再试。' }); return; }
+            this.chatMessages.push({ role: 'assistant', content: d.reply || '（无回复）' });
+            if (d.refresh && d.refresh.subscriptions) this.loadSubs();
+            if (d.refresh && d.refresh.jobs) this.loadJobs();
+          } catch (e) {
+            this.chatMessages.push({ role: 'assistant', content: '网络错误，请稍后重试。' });
+          } finally {
+            this.chatBusy = false; this.persistChat(); this.scrollChat();
+          }
+        },
+
+        newSub() { this.form = emptyForm(); this.editingId = null; this.showForm = true; },
+        editSub(s) {
+          this.editingId = s.id;
+          this.form = {
+            name: s.name, sites: [], keywords: s.keywords, job_type: s.job_type,
+            location: s.location, salary_min: s.salary_min, salary_max: s.salary_max, profile: s.profile || {},
+            send_slots: (s.send_slots && s.send_slots.length) ? s.send_slots.slice() : ['daily_09'],
+            min_score: s.min_score, include_analysis: s.include_analysis,
+            max_jobs: s.max_jobs || 10, notify_empty: !!s.notify_empty, enabled: s.enabled,
+          };
+          this.showForm = true;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        async saveSub() {
+          this.busy = true;
+          try {
+            const url = this.editingId ? '/api/me/subscriptions/' + this.editingId : '/api/me/subscriptions';
+            const method = this.editingId ? 'PUT' : 'POST';
+            const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.form) });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '保存失败', true); return; }
+            this.say(this.editingId ? '已保存' : '订阅已创建');
+            this.showForm = false; await this.loadSubs();
+          } catch (e) { this.say('网络错误', true); } finally { this.busy = false; }
+        },
+        async deleteSub(id) {
+          if (!confirm('确定删除该订阅吗？')) return;
+          this.busy = true;
+          try {
+            const r = await fetch('/api/me/subscriptions/' + id, { method: 'DELETE' });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '删除失败', true); return; }
+            this.say('已删除'); await this.loadSubs();
+          } catch (e) { this.say('网络错误', true); } finally { this.busy = false; }
+        },
+        profileFilled() {
+          const p = this.profile || {};
+          // 任一关键字段有内容即视为已填（用于软提示与引导收尾判断）
+          return ['current_role', 'target_role', 'skills', 'years', 'expected_salary', 'industry', 'goal']
+            .some(k => (p[k] || '').toString().trim());
+        },
+        // 是否处于“编辑/填写”态：引导中、点了修改、或还没填过画像
+        profileEditing() {
+          return this.onboarding || this.editProfile || !this.profileFilled();
+        },
+        cancelEditProfile() {
+          this.editProfile = false;
+          this.loadProfile();  // 丢弃未保存的改动，恢复已存画像
+        },
+        skipOnboarding() {
+          this.onboarding = false;
+          this.go('jobs');
+        },
+        async saveProfile() {
+          this.busy = true;
+          try {
+            const r = await fetch('/api/me/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profile: this.profile }) });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '保存失败', true); return; }
+            if (this.onboarding) {
+              this.onboarding = false;
+              this.editProfile = false;
+              this.say('画像已保存，开始为你匹配');
+              this.go('jobs');
+            } else {
+              this.editProfile = false;
+              this.say('画像已保存');
+            }
+          } catch (e) { this.say('网络错误', true); } finally { this.busy = false; }
+        },
+        async parseResume() {
+          if (!this.resumeFile && !(this.resumeText || '').trim()) { this.say('请先选择简历文件或粘贴文本', true); return; }
+          this.resumeBusy = true;
+          try {
+            const fd = new FormData();
+            if (this.resumeFile) fd.append('file', this.resumeFile);
+            if ((this.resumeText || '').trim()) fd.append('text', this.resumeText);
+            const r = await fetch('/api/me/profile/from-resume', { method: 'POST', body: fd });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '解析失败', true); return; }
+            const p = d.profile || {};
+            // 只覆盖有内容的字段，保留用户已填的
+            for (const k in p) { if (p[k]) this.profile[k] = p[k]; }
+            this.loadResumeMeta();  // 简历已入库，刷新状态以启用诊断/改写
+            this.say('已根据简历填充，请核对后点「保存画像」');
+          } catch (e) { this.say('网络错误', true); } finally { this.resumeBusy = false; }
+        },
+
+        async loadRefMatched() {
+          try { const r = await fetch('/api/me/referrals/matched'); if (!r.ok) return; this.refMatched = await r.json(); this.refMatchedLoaded = true; }
+          catch (e) {}
+        },
+        async loadRefMine() {
+          try { const r = await fetch('/api/me/referrals'); if (!r.ok) return; this.refMine = await r.json(); this.refMineLoaded = true; }
+          catch (e) {}
+        },
+        async browseRefs() {
+          try {
+            const u = '/api/referrals?q=' + encodeURIComponent(this.refQuery) + '&location=' + encodeURIComponent(this.refLoc);
+            const r = await fetch(u); if (!r.ok) return;
+            this.refBrowse = await r.json(); this.refBrowseLoaded = true;
+          } catch (e) {}
+        },
+        newRef() { this.refForm = emptyRef(); this.refEditingId = null; this.showRefForm = true; },
+        editRef(r) {
+          this.refEditingId = r.id;
+          this.refForm = { title: r.title, company: r.company, location: r.location, salary: r.salary,
+                           keywords: r.keywords, description: r.description, contact: r.contact_raw || '',
+                           url: r.url, enabled: r.enabled };
+          this.showRefForm = true;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        async saveRef() {
+          if (!this.refForm.title.trim()) { this.say('请填写职位名', true); return; }
+          this.busy = true;
+          try {
+            const url = this.refEditingId ? '/api/me/referrals/' + this.refEditingId : '/api/me/referrals';
+            const method = this.refEditingId ? 'PUT' : 'POST';
+            const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.refForm) });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '保存失败', true); return; }
+            this.say(this.refEditingId ? '已保存' : '内推已发布');
+            this.showRefForm = false; await this.loadRefMine(); await this.loadRefMatched();
+          } catch (e) { this.say('网络错误', true); } finally { this.busy = false; }
+        },
+        async deleteRef(id) {
+          if (!confirm('确定删除该内推吗？')) return;
+          this.busy = true;
+          try {
+            const r = await fetch('/api/me/referrals/' + id, { method: 'DELETE' });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '删除失败', true); return; }
+            this.say('已删除'); await this.loadRefMine();
+          } catch (e) { this.say('网络错误', true); } finally { this.busy = false; }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+# Linux 运行时产物
+.ms-playwright/
+.uv/
+server_out.log
+server_err.log
+server_out*.log
+server_err*.log
+# 打包/演示/供应商内置库等大文件，不入库
+.pptx_lib/
+*.tgz
+*.pptx
+
+# 本地运维脚本（含内部IP守门规则，不入库）
+sync_to_github.sh

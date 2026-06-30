@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>职位订阅 · Job Hunter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800">
+  <div class="max-w-2xl mx-auto p-4 sm:p-6" x-data="subApp()" x-init="init()">
+
+    <div class="bg-slate-900 text-white rounded-2xl px-6 py-5 mb-5">
+      <div class="text-xl font-bold">职位订阅</div>
+      <div class="text-slate-300 text-sm mt-1" x-text="mode === 'manage' ? '管理你的订阅' : '填写条件与自画像，按时段收到个性化职位邮件'"></div>
+    </div>
+
+    <div x-show="notice" x-transition class="mb-4 rounded-lg px-4 py-3 text-sm"
+         :class="noticeErr ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'"
+         x-text="notice"></div>
+
+    <div x-show="createdUrl" class="mb-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm">
+      订阅成功！请收藏你的管理链接（也可用它退订）：<br>
+      <a :href="createdUrl" class="text-blue-700 break-all" x-text="createdUrl"></a>
+    </div>
+
+    <div class="space-y-5">
+      <!-- 我的已订阅 -->
+      <div x-show="mode === 'create'" class="bg-white rounded-xl shadow-sm p-5">
+        <h2 class="font-semibold mb-1">我的已订阅</h2>
+        <p class="text-xs text-slate-400 mb-3">输入邮箱查看你已创建的订阅，可直接管理 / 试发 / 退订。<span class="text-slate-300">（部门内部测试，暂未做账号验证）</span></p>
+        <div class="flex gap-2">
+          <input x-model="myEmail" type="email" placeholder="you@example.com" class="flex-1 border rounded-lg px-3 py-2 text-sm" />
+          <button @click="loadMine()" :disabled="loadingMine"
+                  class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg px-4 py-2 text-sm whitespace-nowrap">
+            查看我的订阅
+          </button>
+          <button @click="recover()" :disabled="recovering" title="把管理链接发到邮箱（保护隐私）"
+                  class="bg-slate-200 hover:bg-slate-300 disabled:opacity-50 text-slate-700 rounded-lg px-3 py-2 text-sm whitespace-nowrap">
+            发到邮箱
+          </button>
+        </div>
+
+        <template x-if="mineLoaded && mine.length === 0">
+          <p class="text-sm text-slate-400 mt-3">该邮箱暂无订阅，可在下方创建。</p>
+        </template>
+        <div class="mt-3 space-y-2" x-show="mine.length">
+          <template x-for="s in mine" :key="s.id">
+            <div class="border rounded-lg p-3 text-sm" :class="s.enabled ? '' : 'opacity-60 bg-slate-50'">
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-slate-900" x-text="s.name || '(未命名订阅)'"></span>
+                <span class="text-[11px] px-1.5 py-0.5 rounded"
+                      :class="s.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'"
+                      x-text="s.enabled ? '已启用' : '已退订'"></span>
+              </div>
+              <div class="text-xs text-slate-500 mt-1">
+                <span x-text="'站点: ' + (s.sites.length ? s.sites.map(siteName).join('/') : '全部')"></span>
+                <span class="text-slate-300">·</span>
+                <span x-text="'关键词: ' + (s.keywords || '不限')"></span>
+                <template x-if="s.location"><span><span class="text-slate-300">·</span> <span x-text="'地点: ' + s.location"></span></span></template>
+              </div>
+              <div class="text-xs text-slate-400 mt-0.5">
+                <span x-text="'时段: ' + (s.send_slots.length ? s.send_slots.map(slotName).join('、') : '无')"></span>
+                <span class="text-slate-300">·</span>
+                <span x-text="'匹配≥' + (s.min_score || 0)"></span>
+                <span class="text-slate-300">·</span>
+                <span x-text="s.last_sent_at ? ('上次发送 ' + fmtTime(s.last_sent_at)) : '尚未发送'"></span>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-2 text-xs">
+                <button @click="manage(s.manage_token)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded px-2 py-1">管理</button>
+                <button @click="testOne(s.manage_token)" :disabled="busy" class="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded px-2 py-1">试发一封</button>
+                <button x-show="s.enabled" @click="unsubOne(s.manage_token)" :disabled="busy" class="bg-rose-100 hover:bg-rose-200 disabled:opacity-50 text-rose-700 rounded px-2 py-1">退订</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- 基本信息 -->
+      <div class="bg-white rounded-xl shadow-sm p-5">
+        <h2 class="font-semibold mb-3">基本信息</h2>
+        <div class="space-y-3 text-sm">
+          <div>
+            <label class="block text-slate-500 mb-1">邮箱 *</label>
+            <input x-model="form.email" type="email" placeholder="you@example.com" class="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">订阅名</label>
+            <input x-model="form.name" placeholder="如 C++ 上海" class="w-full border rounded-lg px-3 py-2" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 过滤条件 -->
+      <div class="bg-white rounded-xl shadow-sm p-5">
+        <h2 class="font-semibold mb-3">搜索条件</h2>
+        <div class="space-y-3 text-sm">
+          <div>
+            <label class="block text-slate-500 mb-1">站点（可多选）</label>
+            <div class="flex flex-wrap gap-2">
+              <template x-for="s in sites" :key="s.value">
+                <label class="inline-flex items-center gap-1 border rounded-lg px-3 py-1.5 cursor-pointer"
+                       :class="form.sites.includes(s.value) ? 'bg-blue-50 border-blue-400' : ''">
+                  <input type="checkbox" :value="s.value"
+                         :checked="form.sites.includes(s.value)" @change="toggle('sites', s.value)" />
+                  <span x-text="s.name"></span>
+                </label>
+              </template>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-500 mb-1">关键词（逗号分隔）</label>
+              <input x-model="form.keywords" placeholder="C++, 后端" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">工作类型</label>
+              <input x-model="form.job_type" placeholder="全职/实习/远程" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-slate-500 mb-1">城市/地点</label>
+              <input x-model="form.location" placeholder="上海" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">薪资下限(k)</label>
+              <input x-model.number="form.salary_min" type="number" min="0" placeholder="0" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">薪资上限(k)</label>
+              <input x-model.number="form.salary_max" type="number" min="0" placeholder="0" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 自画像 -->
+      <div class="bg-white rounded-xl shadow-sm p-5">
+        <h2 class="font-semibold mb-1">自画像</h2>
+        <p class="text-xs text-slate-400 mb-3">用于 AI 个性化匹配与建议。填得越具体，匹配越准。</p>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <label class="block text-slate-500 mb-1">工作年限</label>
+            <select x-model="form.profile.years" class="w-full border rounded-lg px-3 py-2">
+              <option value="">不限</option>
+              <option>应届</option><option>1年以内</option><option>1-3年</option>
+              <option>3-5年</option><option>5-10年</option><option>10年以上</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">学历</label>
+            <select x-model="form.profile.education" class="w-full border rounded-lg px-3 py-2">
+              <option value="">不限</option><option>大专</option><option>本科</option>
+              <option>硕士</option><option>博士</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">当前职位</label>
+            <input x-model="form.profile.current_role" placeholder="C++ 开发工程师" class="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">目标职位</label>
+            <input x-model="form.profile.target_role" placeholder="高级/资深 C++" class="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div class="col-span-2">
+            <label class="block text-slate-500 mb-1">技能（逗号分隔）</label>
+            <input x-model="form.profile.skills" placeholder="C++, Linux, 多线程, 网络编程" class="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">行业</label>
+            <input x-model="form.profile.industry" placeholder="嵌入式/通信/金融" class="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">期望薪资</label>
+            <input x-model="form.profile.expected_salary" placeholder="25-35k" class="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">工作模式</label>
+            <select x-model="form.profile.work_mode" class="w-full border rounded-lg px-3 py-2">
+              <option value="">不限</option><option>远程</option><option>现场</option><option>混合</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">是否可异地</label>
+            <select x-model="form.profile.relocate" class="w-full border rounded-lg px-3 py-2">
+              <option value="">不限</option><option>可异地</option><option>不可异地</option><option>可考虑</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">公司规模偏好</label>
+            <select x-model="form.profile.company_size" class="w-full border rounded-lg px-3 py-2">
+              <option value="">不限</option><option>初创</option><option>中型</option>
+              <option>大型</option><option>外企</option><option>国企</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">想避开（逗号分隔）</label>
+            <input x-model="form.profile.avoid" placeholder="外包, 996" class="w-full border rounded-lg px-3 py-2" />
+          </div>
+          <div class="col-span-2">
+            <label class="block text-slate-500 mb-1">职业目标（自由描述）</label>
+            <textarea x-model="form.profile.goal" rows="2" placeholder="希望往架构方向发展，关注技术深度……" class="w-full border rounded-lg px-3 py-2"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- 发送设置 -->
+      <div class="bg-white rounded-xl shadow-sm p-5">
+        <h2 class="font-semibold mb-3">发送设置</h2>
+        <div class="space-y-3 text-sm">
+          <div>
+            <label class="block text-slate-500 mb-1">发送时段（可多选）</label>
+            <div class="flex flex-wrap gap-2">
+              <template x-for="sl in slots" :key="sl.value">
+                <label class="inline-flex items-center gap-1 border rounded-lg px-3 py-1.5 cursor-pointer"
+                       :class="form.send_slots.includes(sl.value) ? 'bg-blue-50 border-blue-400' : ''">
+                  <input type="checkbox" :checked="form.send_slots.includes(sl.value)" @change="toggle('send_slots', sl.value)" />
+                  <span x-text="sl.name"></span>
+                </label>
+              </template>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 flex-wrap">
+            <div>
+              <label class="block text-slate-500 mb-1">最低匹配度(0=不限)</label>
+              <input x-model.number="form.min_score" type="number" min="0" max="100" class="w-32 border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-slate-500 mb-1">每次最多条数</label>
+              <input x-model.number="form.max_jobs" type="number" min="1" max="50" class="w-32 border rounded-lg px-3 py-2" />
+            </div>
+            <label class="inline-flex items-center gap-2 mt-5">
+              <input type="checkbox" x-model="form.include_analysis" />
+              <span>邮件附带 AI 分析建议</span>
+            </label>
+            <label class="inline-flex items-center gap-2 mt-5">
+              <input type="checkbox" x-model="form.notify_empty" />
+              <span>无匹配也发提醒</span>
+            </label>
+          </div>
+          <p class="text-xs text-slate-400">将按 AI 匹配度从高到低，推送最匹配的前 N 条。</p>
+        </div>
+      </div>
+
+      <!-- 操作 -->
+      <div class="flex flex-wrap gap-3">
+        <button @click="save()" :disabled="busy"
+                class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg px-5 py-2.5 text-sm font-medium"
+                x-text="mode === 'manage' ? '保存修改' : '创建订阅'"></button>
+        <template x-if="mode === 'manage'">
+          <button @click="testSend()" :disabled="busy"
+                  class="bg-slate-700 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg px-5 py-2.5 text-sm">
+            立即试发一封
+          </button>
+        </template>
+        <template x-if="mode === 'manage'">
+          <button @click="doUnsubscribe()" :disabled="busy"
+                  class="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg px-5 py-2.5 text-sm">
+            退订
+          </button>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function subApp() {
+      return {
+        mode: 'create',
+        token: '',
+        busy: false,
+        notice: '', noticeErr: false,
+        createdUrl: '',
+        recovering: false,
+        myEmail: '', mine: [], mineLoaded: false, loadingMine: false,
+        sites: [], slots: [],
+        form: {
+          email: '', name: '', sites: [], keywords: '', job_type: '', location: '',
+          salary_min: 0, salary_max: 0,
+          profile: { years: '', education: '', current_role: '', target_role: '', skills: '',
+                     industry: '', expected_salary: '', work_mode: '', relocate: '',
+                     company_size: '', avoid: '', goal: '' },
+          send_slots: ['daily_09'], min_score: 0, include_analysis: true,
+          max_jobs: 10, notify_empty: false, enabled: true,
+        },
+        async init() {
+          await this.loadSites();
+          const params = new URLSearchParams(location.search);
+          this.token = params.get('token') || '';
+          if (this.token) { this.mode = 'manage'; await this.loadSub(); }
+        },
+        say(msg, err = false) { this.notice = msg; this.noticeErr = err; setTimeout(() => this.notice = '', 5000); },
+        toggle(field, val) {
+          const arr = this.form[field];
+          const i = arr.indexOf(val);
+          if (i >= 0) arr.splice(i, 1); else arr.push(val);
+        },
+        siteName(v) { const s = this.sites.find(x => x.value === v); return s ? s.name : v; },
+        slotName(v) { const s = this.slots.find(x => x.value === v); return s ? s.name : v; },
+        fmtTime(t) { if (!t) return ''; try { return new Date(t).toLocaleString('zh-CN', { hour12: false }); } catch (e) { return t; } },
+        async loadMine() {
+          if (!this.myEmail || !this.myEmail.includes('@')) { this.say('请填写正确邮箱', true); return; }
+          this.loadingMine = true;
+          try {
+            const r = await fetch('/api/my-subscriptions?email=' + encodeURIComponent(this.myEmail));
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '查询失败', true); return; }
+            this.mine = d; this.mineLoaded = true;
+          } catch (e) { this.say('网络错误', true); }
+          finally { this.loadingMine = false; }
+        },
+        manage(token) {
+          this.token = token; this.mode = 'manage'; this.createdUrl = '';
+          this.loadSub();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        async testOne(token) {
+          this.busy = true;
+          try {
+            const r = await fetch('/api/subscriptions/' + encodeURIComponent(token) + '/test', { method: 'POST' });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '发送失败', true); return; }
+            this.say(d.sent ? ('已发送，包含 ' + (d.jobs || 0) + ' 个职位') : '当前没有匹配的新职位');
+          } catch (e) { this.say('网络错误', true); }
+          finally { this.busy = false; }
+        },
+        async unsubOne(token) {
+          if (!confirm('确定退订该订阅吗？')) return;
+          this.busy = true;
+          try {
+            const r = await fetch('/api/subscriptions/' + encodeURIComponent(token) + '/unsubscribe', { method: 'POST' });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '退订失败', true); return; }
+            this.say('已退订');
+            await this.loadMine();
+          } catch (e) { this.say('网络错误', true); }
+          finally { this.busy = false; }
+        },
+        async recover() {
+          if (!this.myEmail || !this.myEmail.includes('@')) { this.say('请填写正确邮箱', true); return; }
+          this.recovering = true;
+          try {
+            const r = await fetch('/api/subscriptions/recover', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: this.myEmail }),
+            });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '发送失败', true); return; }
+            this.say(d.message || '如果该邮箱有订阅，管理链接已发送到邮箱，请查收。');
+          } catch (e) { this.say('网络错误', true); }
+          finally { this.recovering = false; }
+        },
+        async loadSites() {
+          try {
+            const r = await fetch('/api/subscribe/sites');
+            const d = await r.json();
+            this.sites = d.sites; this.slots = d.slots;
+          } catch (e) { this.say('加载站点失败', true); }
+        },
+        async loadSub() {
+          try {
+            const r = await fetch('/api/subscriptions/' + encodeURIComponent(this.token));
+            if (!r.ok) { this.say('链接无效或订阅不存在', true); return; }
+            const d = await r.json();
+            this.form.email = d.email; this.form.name = d.name;
+            this.form.sites = d.sites || []; this.form.keywords = d.keywords;
+            this.form.job_type = d.job_type; this.form.location = d.location;
+            this.form.salary_min = d.salary_min; this.form.salary_max = d.salary_max;
+            this.form.send_slots = d.send_slots && d.send_slots.length ? d.send_slots : ['daily_09'];
+            this.form.min_score = d.min_score; this.form.include_analysis = d.include_analysis;
+            this.form.max_jobs = d.max_jobs || 10; this.form.notify_empty = !!d.notify_empty;
+            this.form.enabled = d.enabled;
+            this.form.profile = Object.assign(this.form.profile, d.profile || {});
+          } catch (e) { this.say('加载订阅失败', true); }
+        },
+        async save() {
+          if (!this.form.email || !this.form.email.includes('@')) { this.say('请填写正确邮箱', true); return; }
+          this.busy = true;
+          try {
+            const url = this.mode === 'manage'
+              ? '/api/subscriptions/' + encodeURIComponent(this.token)
+              : '/api/subscribe';
+            const r = await fetch(url, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.form),
+            });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '保存失败', true); return; }
+            if (this.mode === 'create') {
+              this.createdUrl = d.manage_url;
+              this.token = d.token; this.mode = 'manage';
+              this.say('订阅创建成功');
+            } else {
+              this.say('已保存');
+            }
+          } catch (e) { this.say('网络错误', true); }
+          finally { this.busy = false; }
+        },
+        async testSend() {
+          this.busy = true;
+          try {
+            const r = await fetch('/api/subscriptions/' + encodeURIComponent(this.token) + '/test', { method: 'POST' });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '发送失败', true); return; }
+            this.say(d.sent ? ('已发送，包含 ' + (d.jobs || 0) + ' 个职位') : '当前没有匹配的新职位');
+          } catch (e) { this.say('网络错误', true); }
+          finally { this.busy = false; }
+        },
+        async doUnsubscribe() {
+          if (!confirm('确定退订吗？')) return;
+          this.busy = true;
+          try {
+            const r = await fetch('/api/subscriptions/' + encodeURIComponent(this.token) + '/unsubscribe', { method: 'POST' });
+            const d = await r.json();
+            if (!r.ok) { this.say(d.detail || '退订失败', true); return; }
+            this.form.enabled = false;
+            this.say('已退订');
+          } catch (e) { this.say('网络错误', true); }
+          finally { this.busy = false; }
+        },
+      };
+    }
+  </script>
+</body>
+</html>
