@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Hunter Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .scrollbar-thin::-webkit-scrollbar { width: 8px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800">
+  <div x-data="app()" x-init="init()" x-cloak class="min-h-screen">
+    <!-- 管理员口令登录门 -->
+    <div x-show="adminChecked && !isAdmin" class="min-h-screen flex items-center justify-center p-6">
+      <div class="bg-white rounded-xl shadow-sm p-6 w-full max-w-sm">
+        <h1 class="text-lg font-semibold mb-1">管理后台</h1>
+        <p class="text-sm text-slate-500 mb-4">请输入管理员口令进入。</p>
+        <input x-model="adminPwd" type="password" placeholder="管理员口令"
+               class="w-full border rounded-lg px-3 py-2 text-sm" @keyup.enter="adminLogin()" />
+        <button @click="adminLogin()" class="mt-3 w-full bg-slate-900 hover:bg-black text-white rounded-lg px-4 py-2.5 text-sm font-medium">进入后台</button>
+        <div class="text-center text-xs text-slate-400 mt-4"><a href="/" class="hover:text-slate-600">返回用户门户</a></div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white" x-show="isAdmin">
+      <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 class="text-xl font-semibold">Job Hunter Agent</h1>
+          <p class="text-slate-400 text-sm">定时抓取 · DeepSeek 智能分析 · 求职建议</p>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <span class="px-2 py-1 rounded-full"
+                :class="health.llm_configured ? 'bg-emerald-600' : 'bg-rose-600'">
+            <span x-text="(health.llm_provider || 'LLM').toUpperCase()"></span>: <span x-text="health.llm_configured ? '已配置' : '未配置'"></span>
+          </span>
+          <button @click="adminLogout()" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-1.5">退出后台</button>
+        </div>
+      </div>
+    </header>
+
+    <main x-show="isAdmin" class="max-w-7xl mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Left: configs + login -->
+      <section class="lg:col-span-1 space-y-6">
+        <!-- Login -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">站点登录</h2>
+            <div class="flex items-center gap-2 text-xs">
+              <template x-if="browser.enabled">
+                <span class="flex items-center gap-1">
+                  <span class="inline-block w-2 h-2 rounded-full"
+                        :class="browser.running ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                  <span class="text-slate-500" x-text="browser.running ? '浏览器已就绪' : '浏览器未启动'"></span>
+                </span>
+              </template>
+              <button x-show="browser.enabled && !browser.running" @click="launchBrowser()"
+                      class="bg-emerald-600 hover:bg-emerald-700 text-white rounded px-2 py-1">启动浏览器</button>
+              <a href="/browser" target="_blank"
+                 class="bg-violet-600 hover:bg-violet-700 text-white rounded px-2 py-1">打开远程浏览器↗</a>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mb-3">
+            登录方式：点上面「<b>打开远程浏览器</b>」会新开一个网页，实时显示托管 Chrome 画面，
+            在里面点对应站点按钮即可<b>扫码/账号登录</b>（可直接用鼠标键盘操作）。登录态保存后无需重复登录。
+          </p>
+          <div class="flex gap-2">
+            <button @click="login('zhilian')" class="flex-1 text-white rounded-lg py-2 text-sm"
+                    :class="needLogin('zhilian') ? 'bg-rose-600 hover:bg-rose-700 animate-pulse' : 'bg-blue-600 hover:bg-blue-700'">
+              登录智联<span x-show="logins.zhilian" class="ml-1" title="已登录">✓</span>
+            </button>
+            <button @click="login('linkedin')" class="flex-1 text-white rounded-lg py-2 text-sm"
+                    :class="needLogin('linkedin') ? 'bg-rose-600 hover:bg-rose-700 animate-pulse' : 'bg-sky-700 hover:bg-sky-800'">
+              登录领英<span x-show="logins.linkedin" class="ml-1" title="已登录">✓</span>
+            </button>
+            <button @click="login('boss')" class="flex-1 text-white rounded-lg py-2 text-sm"
+                    :class="needLogin('boss') ? 'bg-rose-600 hover:bg-rose-700 animate-pulse' : 'bg-teal-600 hover:bg-teal-700'">
+              登录BOSS<span x-show="logins.boss" class="ml-1" title="已登录">✓</span>
+            </button>
+            <button @click="login('liepin')" class="flex-1 text-white rounded-lg py-2 text-sm"
+                    :class="needLogin('liepin') ? 'bg-rose-600 hover:bg-rose-700 animate-pulse' : 'bg-orange-600 hover:bg-orange-700'">
+              登录猎聘<span x-show="logins.liepin" class="ml-1" title="已登录">✓</span>
+            </button>
+            <button @click="login('job51')" class="flex-1 text-white rounded-lg py-2 text-sm"
+                    :class="needLogin('job51') ? 'bg-rose-600 hover:bg-rose-700 animate-pulse' : 'bg-indigo-600 hover:bg-indigo-700'">
+              登录前程无忧<span x-show="logins.job51" class="ml-1" title="已登录">✓</span>
+            </button>
+          </div>
+          <p class="text-xs mt-2">
+            <span class="text-slate-400">登录状态：</span>
+            <span :class="loginTextClass('zhilian')" x-text="'智联' + loginText('zhilian')"></span>
+            <span class="text-slate-300">·</span>
+            <span :class="loginTextClass('linkedin')" x-text="'领英' + loginText('linkedin')"></span>
+            <span class="text-slate-300">·</span>
+            <span :class="loginTextClass('boss')" x-text="'BOSS' + loginText('boss')"></span>
+            <span class="text-slate-300">·</span>
+            <span :class="loginTextClass('liepin')" x-text="'猎聘' + loginText('liepin')"></span>
+            <span class="text-slate-300">·</span>
+            <span :class="loginTextClass('job51')" x-text="'前程无忧' + loginText('job51')"></span>
+          </p>
+          <p class="text-xs text-slate-400 mt-1">猎聘 / 前程无忧无需登录即可抓取，均可获取完整 JD（前程无忧经搜索接口直接拿到，无需过验证）。</p>
+        </div>
+
+        <!-- New config -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <h2 class="font-semibold mb-3">新建搜索任务</h2>
+          <div class="space-y-3 text-sm">
+            <input x-model="form.name" placeholder="任务名称，如 C++ 上海" class="w-full border rounded-lg px-3 py-2" />
+            <div class="grid grid-cols-2 gap-2">
+              <select x-model="form.site" class="border rounded-lg px-3 py-2">
+                <option value="zhilian">智联招聘</option>
+                <option value="linkedin">领英</option>
+                <option value="boss">BOSS直聘</option>
+                <option value="liepin">猎聘</option>
+                <option value="job51">前程无忧</option>
+              </select>
+              <input x-model="form.keyword" placeholder="关键词 如 C++" class="border rounded-lg px-3 py-2" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input x-model="form.city" placeholder="城市(可空)" class="border rounded-lg px-3 py-2" />
+              <input x-model="form.salary" placeholder="薪资(可空)" class="border rounded-lg px-3 py-2" />
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-slate-500">发布时间</span>
+              <select x-model="form.date_range" class="flex-1 border rounded-lg px-3 py-2">
+                <option value="any">不限</option>
+                <option value="day">近一天</option>
+                <option value="week">近一周</option>
+                <option value="month">近一月</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-slate-500">每</span>
+              <input type="number" min="1" x-model.number="form.interval" class="w-20 border rounded-lg px-3 py-2" />
+              <select x-model="form.unit" class="border rounded-lg px-3 py-2">
+                <option value="minutes">分钟</option>
+                <option value="hours">小时</option>
+                <option value="days">天</option>
+              </select>
+              <span class="text-slate-500">执行一次</span>
+            </div>
+            <button @click="saveConfig()" class="w-full bg-slate-900 hover:bg-slate-700 text-white rounded-lg py-2">添加任务</button>
+          </div>
+        </div>
+
+        <!-- Email push -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">邮件推送</h2>
+            <span class="text-xs px-2 py-0.5 rounded-full"
+                  :class="email.smtp_configured ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'"
+                  x-text="email.smtp_configured ? 'SMTP 已配置' : 'SMTP 未配置'"></span>
+          </div>
+          <p class="text-xs text-slate-500 mb-2">把抓到的职位（含完整 JD）推送到下列邮箱，可选附带 AI 分析。SMTP 服务器在 <code>.env</code> 配置。</p>
+          <template x-if="!email.smtp_configured">
+            <p class="text-xs text-rose-500 mb-2">请先在 .env 设置 SMTP_HOST / SMTP_USER / SMTP_PASSWORD（密码常为邮箱"授权码"）。</p>
+          </template>
+          <textarea x-model="email.recipients" rows="2" placeholder="收件人邮箱，逗号或换行分隔" class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
+          <label class="flex items-center gap-2 mt-2 text-sm text-slate-600">
+            <input type="checkbox" x-model="email.include_analysis" class="rounded" />
+            附带 AI 分析建议
+          </label>
+          <label class="flex items-center gap-2 mt-1 text-sm text-slate-600">
+            <input type="checkbox" x-model="email.enabled" class="rounded" />
+            抓取后自动推送新职位
+          </label>
+          <div class="flex items-center gap-2 mt-2 text-sm text-slate-600">
+            <span>仅推送匹配度 ≥</span>
+            <input type="number" min="0" max="100" x-model.number="email.min_score" class="w-20 border rounded-lg px-2 py-1" />
+            <span class="text-xs text-slate-400">(0=不限)</span>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <button @click="saveEmail()" class="flex-1 bg-slate-900 hover:bg-slate-700 text-white rounded-lg py-2 text-sm">保存</button>
+            <button @click="testEmail()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2 text-sm">发测试</button>
+            <button @click="pushEmail()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm">立即推送</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: tasks + jobs -->
+      <section class="lg:col-span-2 space-y-6">
+        <!-- Tasks list -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">搜索任务</h2>
+            <div class="flex gap-2">
+              <button @click="runAll()" class="text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-1.5">一键搜索所有</button>
+              <button @click="analyzePending()" class="text-sm bg-violet-600 hover:bg-violet-700 text-white rounded-lg px-3 py-1.5">分析未处理职位</button>
+              <button @click="clearJobs()" class="text-sm bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-lg px-3 py-1.5">清空职位</button>
+            </div>
+          </div>
+          <template x-if="configs.length === 0">
+            <p class="text-sm text-slate-400">还没有任务，左侧新建一个吧。</p>
+          </template>
+          <div class="space-y-2">
+            <template x-for="c in configs" :key="c.id">
+              <div class="border rounded-lg px-3 py-2 flex items-center justify-between text-sm">
+                <div>
+                  <span class="font-medium" x-text="c.name"></span>
+                  <span class="text-slate-400" x-text="'· ' + siteName(c.site) + ' · ' + c.keyword + (c.city ? (' · ' + c.city) : '')"></span>
+                  <span class="text-slate-400" x-text="'· ' + dateRangeName(c.date_range)"></span>
+                  <span class="text-slate-400" x-text="'· 每' + c.interval + unitName(c.unit)"></span>
+                </div>
+                <div class="flex gap-2">
+                  <button @click="runConfig(c.id)" class="bg-blue-600 hover:bg-blue-700 text-white rounded px-2 py-1">立即跑</button>
+                  <button @click="deleteConfig(c.id)" class="bg-rose-100 hover:bg-rose-200 text-rose-700 rounded px-2 py-1">删除</button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Crawl batches (ops) -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-baseline gap-2">
+              <h2 class="font-semibold">抓取批次（运营）</h2>
+              <span class="text-xs text-slate-400" x-show="slotsDate">批次日期 <span class="font-mono" x-text="slotsDate"></span></span>
+            </div>
+            <button @click="loadSlots()" class="text-sm text-slate-500 hover:text-slate-800">刷新</button>
+          </div>
+          <p class="text-xs text-slate-400 mb-3">
+            每个发送时段会在发送前 <span x-text="slotsLead"></span> 分钟自动预抓取；失败/被拦的组合可人工干预后「重跑失败」。订阅由用户在
+            <a href="/subscribe" target="_blank" class="text-blue-600 hover:text-blue-800">订阅页</a> 自助管理。
+          </p>
+          <template x-if="slots.length === 0">
+            <p class="text-sm text-slate-400">暂无启用订阅用到的时段。用户在订阅页创建订阅后，这里会出现对应批次。</p>
+          </template>
+          <div class="space-y-2 max-h-[46vh] overflow-y-auto scrollbar-thin pr-1">
+            <template x-for="sl in slots" :key="sl.slot">
+              <div class="border rounded-lg p-3 text-sm">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="font-medium text-slate-900" x-text="sl.name"></div>
+                    <div class="text-xs text-slate-500 mt-0.5">
+                      预抓取 <span class="font-mono" x-text="sl.crawl_time"></span>
+                      · 发送 <span class="font-mono" x-text="sl.send_time"></span>
+                    </div>
+                    <div class="text-xs mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                      <span class="text-slate-500">组合 <span x-text="sl.counts.total || 0"></span></span>
+                      <span class="text-emerald-600">成功 <span x-text="sl.counts.ok || 0"></span></span>
+                      <span class="text-rose-600" :class="(sl.counts.failed||0)+(sl.counts.blocked||0) ? 'font-medium' : ''">失败/被拦 <span x-text="(sl.counts.failed||0)+(sl.counts.blocked||0)"></span></span>
+                      <span class="text-slate-400">待跑 <span x-text="sl.counts.pending || 0"></span></span>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2 mt-2 text-xs">
+                  <button @click="crawlSlot(sl.slot)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded px-2 py-1">立即预抓取</button>
+                  <button @click="retrySlot(sl.slot)" class="bg-amber-500 hover:bg-amber-600 text-white rounded px-2 py-1" :disabled="!((sl.counts.failed||0)+(sl.counts.blocked||0))" :class="((sl.counts.failed||0)+(sl.counts.blocked||0)) ? '' : 'opacity-40 cursor-not-allowed'">重跑失败</button>
+                  <button @click="sendSlot(sl.slot)" class="bg-blue-600 hover:bg-blue-700 text-white rounded px-2 py-1">立即发送</button>
+                  <button @click="toggleTasks(sl.slot)" class="text-slate-500 hover:text-slate-800 px-2 py-1" x-text="openSlot === sl.slot ? '收起明细' : '查看明细'"></button>
+                </div>
+                <div x-show="openSlot === sl.slot" class="mt-2 border-t pt-2 space-y-1">
+                  <template x-if="(crawlTasks[sl.slot] || []).length === 0">
+                    <p class="text-xs text-slate-400">本批次暂无记录，点「立即预抓取」生成。</p>
+                  </template>
+                  <template x-for="t in (crawlTasks[sl.slot] || [])" :key="t.id">
+                    <div class="text-xs flex items-start gap-2">
+                      <span class="px-1.5 py-0.5 rounded shrink-0" :class="statusClass(t.status)" x-text="statusName(t.status)"></span>
+                      <div class="min-w-0 flex-1">
+                        <span class="text-slate-700" x-text="siteName(t.site) + ' · ' + (t.keyword || '不限') + (t.city ? (' · ' + t.city) : '')"></span>
+                        <span class="text-slate-400" x-show="t.status === 'ok'" x-text="' · 抓' + t.scraped + ' 新' + t.new"></span>
+                        <div class="text-slate-400 mt-0.5" x-show="t.updated_at">
+                          批次 <span class="font-mono" x-text="t.run_date"></span>
+                          · 最后运行 <span x-text="fmtTime(t.updated_at)"></span>
+                        </div>
+                        <div class="text-rose-500 break-words mt-0.5" x-show="t.error" x-text="t.error"></div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Subscribers -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="font-semibold">订阅者（<span x-text="subscriptions.length"></span>）</h2>
+            <button @click="loadSubscriptions()" class="text-sm text-slate-500 hover:text-slate-800">刷新</button>
+          </div>
+          <p class="text-xs text-slate-400 mb-3">所有用户创建的订阅。可点「管理」打开该订阅的自助管理页。</p>
+          <template x-if="subscriptions.length === 0">
+            <p class="text-sm text-slate-400">暂无订阅。用户在用户门户创建订阅后会出现在这里。</p>
+          </template>
+          <div class="space-y-2 max-h-[46vh] overflow-y-auto scrollbar-thin pr-1">
+            <template x-for="s in subscriptions" :key="s.id">
+              <div class="border rounded-lg p-3 text-sm" :class="s.enabled ? '' : 'opacity-60 bg-slate-50'">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-medium text-slate-900" x-text="s.email"></span>
+                  <span class="text-slate-400" x-show="s.name" x-text="'· ' + s.name"></span>
+                  <span class="text-[11px] px-1.5 py-0.5 rounded"
+                        :class="s.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'"
+                        x-text="s.enabled ? '已启用' : '已停用'"></span>
+                </div>
+                <div class="text-xs text-slate-500 mt-1">
+                  <span x-text="'站点: ' + (s.sites.length ? s.sites.map(siteName).join('/') : '全部')"></span>
+                  <span class="text-slate-300">·</span>
+                  <span x-text="'关键词: ' + (s.keywords || '不限')"></span>
+                  <template x-if="s.location"><span><span class="text-slate-300">·</span> <span x-text="'地点: ' + s.location"></span></span></template>
+                </div>
+                <div class="text-xs text-slate-400 mt-0.5">
+                  <span x-text="'时段: ' + (s.send_slots.length ? s.send_slots.map(slotName).join('、') : '无')"></span>
+                  <span class="text-slate-300">·</span>
+                  <span x-text="'匹配≥' + (s.min_score || 0)"></span>
+                  <span class="text-slate-300">·</span>
+                  <span x-text="s.include_analysis ? '附带分析' : '不附分析'"></span>
+                  <span class="text-slate-300">·</span>
+                  <span x-text="s.last_sent_at ? ('上次发送 ' + fmtTime(s.last_sent_at)) : '尚未发送'"></span>
+                </div>
+                <div class="mt-2">
+                  <a :href="'/subscribe?token=' + s.manage_token" target="_blank"
+                     class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded px-2 py-1 inline-block">管理</a>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Referrals -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="font-semibold">内推信息（<span x-text="referrals.length"></span>）</h2>
+            <button @click="loadReferrals()" class="text-sm text-slate-500 hover:text-slate-800">刷新</button>
+          </div>
+          <p class="text-xs text-slate-400 mb-3">所有用户发布的内推（含已下架）。</p>
+          <template x-if="referrals.length === 0">
+            <p class="text-sm text-slate-400">暂无内推。用户在门户「内推」页发布后会出现在这里。</p>
+          </template>
+          <div class="space-y-2 max-h-[46vh] overflow-y-auto scrollbar-thin pr-1">
+            <template x-for="r in referrals" :key="r.id">
+              <div class="border rounded-lg p-3 text-sm" :class="r.enabled ? '' : 'opacity-60 bg-slate-50'">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-medium text-slate-900" x-text="r.title"></span>
+                  <span class="text-slate-400" x-show="r.company" x-text="'· ' + r.company"></span>
+                  <span class="text-[11px] px-1.5 py-0.5 rounded"
+                        :class="r.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'"
+                        x-text="r.enabled ? '在招' : '已下架'"></span>
+                </div>
+                <div class="text-xs text-slate-500 mt-1">
+                  <template x-if="r.location"><span x-text="r.location"></span></template>
+                  <template x-if="r.salary"><span><span class="text-slate-300"> · </span><span class="text-emerald-600" x-text="r.salary"></span></span></template>
+                  <template x-if="r.keywords"><span><span class="text-slate-300"> · </span><span x-text="r.keywords"></span></span></template>
+                </div>
+                <div class="text-xs text-slate-600 mt-1 whitespace-pre-wrap" x-show="r.description" x-text="r.description"></div>
+                <div class="text-xs text-slate-400 mt-1">
+                  发布者 <span class="text-slate-600" x-text="r.publisher"></span>
+                  <span class="text-slate-300" x-show="r.publisher_email">·</span>
+                  <span x-show="r.publisher_email" x-text="r.publisher_email"></span>
+                  <span class="text-slate-300">·</span> 联系方式 <span class="text-slate-600" x-text="r.contact"></span>
+                  <span class="text-slate-300">·</span> <span x-text="fmtTime(r.created_at)"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Jobs -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">职位与 AI 建议</h2>
+            <button @click="loadJobs()" class="text-sm text-slate-500 hover:text-slate-800">刷新</button>
+          </div>
+          <template x-if="jobs.length === 0">
+            <p class="text-sm text-slate-400">暂无职位。配置任务并「立即跑」后会出现在这里。</p>
+          </template>
+          <div class="space-y-3 max-h-[60vh] overflow-y-auto scrollbar-thin pr-1">
+            <template x-for="item in jobs" :key="item.job.id">
+              <div class="border rounded-lg p-3">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <a :href="item.job.url" target="_blank" class="font-medium text-slate-900 hover:text-blue-600 truncate block" x-text="item.job.title || '(无标题)'"></a>
+                    <div class="text-sm text-slate-500" x-text="[item.job.company, item.job.salary, item.job.location].filter(Boolean).join(' · ')"></div>
+                    <div class="text-xs text-slate-400" x-text="[item.job.experience, item.job.education].filter(Boolean).join(' · ')"></div>
+                    <div class="flex flex-wrap gap-1 mt-1" x-show="item.job.tags">
+                      <template x-for="t in (item.job.tags || '').split(', ').filter(Boolean)" :key="t">
+                        <span class="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700" x-text="t"></span>
+                      </template>
+                    </div>
+                  </div>
+                  <div class="flex flex-col items-end gap-1 shrink-0">
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600" x-text="siteName(item.job.site)"></span>
+                    <template x-if="item.analysis">
+                      <span class="text-xs px-2 py-0.5 rounded text-white"
+                            :class="scoreColor(item.analysis.match_score)"
+                            x-text="'匹配 ' + item.analysis.match_score"></span>
+                    </template>
+                  </div>
+                </div>
+                <div class="mt-2 flex gap-3 text-xs">
+                  <details x-show="item.job.description" class="flex-1">
+                    <summary class="text-slate-500 cursor-pointer">查看职位描述</summary>
+                    <pre class="whitespace-pre-wrap text-slate-600 mt-1 max-h-60 overflow-y-auto scrollbar-thin" x-text="item.job.description"></pre>
+                  </details>
+                </div>
+                <template x-if="item.analysis">
+                  <div class="mt-2 text-sm">
+                    <p class="text-slate-700" x-text="item.analysis.summary"></p>
+                    <details class="mt-1">
+                      <summary class="text-blue-600 cursor-pointer text-xs">查看 AI 建议</summary>
+                      <div class="mt-1 space-y-2">
+                        <div>
+                          <div class="text-[11px] font-semibold text-violet-700">投递建议</div>
+                          <pre class="whitespace-pre-wrap text-slate-600 text-xs" x-text="item.analysis.advice"></pre>
+                        </div>
+                        <div x-show="item.analysis.skills_to_learn">
+                          <div class="text-[11px] font-semibold text-violet-700">需要补强的技能</div>
+                          <pre class="whitespace-pre-wrap text-slate-600 text-xs" x-text="item.analysis.skills_to_learn"></pre>
+                        </div>
+                        <div x-show="item.analysis.resume_tips">
+                          <div class="text-[11px] font-semibold text-violet-700">简历改进建议</div>
+                          <pre class="whitespace-pre-wrap text-slate-600 text-xs" x-text="item.analysis.resume_tips"></pre>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </template>
+                <template x-if="!item.analysis">
+                  <button @click="analyzeJob(item.job.id)" class="mt-2 text-xs bg-violet-100 hover:bg-violet-200 text-violet-700 rounded px-2 py-1">用 AI 分析</button>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Toast -->
+    <div x-show="toast" x-transition class="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-2 rounded-lg shadow-lg text-sm" x-text="toast"></div>
+  </div>
+
+  <script>
+    function app() {
+      return {
+        isAdmin: false,
+        adminPwd: "",
+        adminChecked: false,
+        health: { llm_configured: false, llm_provider: '' },
+        configs: [],
+        subscriptions: [],
+        referrals: [],
+        jobs: [],
+        toast: "",
+        form: { name: "", site: "zhilian", keyword: "", city: "", salary: "", date_range: "any", interval: 6, unit: "hours", enabled: true },
+        email: { recipients: "", enabled: false, include_analysis: true, min_score: 0, smtp_configured: false },
+        browser: { enabled: false, running: false, managed: false },
+        logins: { zhilian: false, linkedin: false, boss: false, liepin: false, job51: false },
+        slots: [],
+        slotsLead: 60,
+        slotsDate: '',
+        openSlot: null,
+        crawlTasks: {},
+
+        async init() {
+          await this.checkAdmin();
+          if (this.isAdmin) await this.startDashboard();
+        },
+        async checkAdmin() {
+          try {
+            const d = await (await fetch("/api/admin/me")).json();
+            this.isAdmin = !!d.is_admin;
+          } catch (e) { this.isAdmin = false; }
+          this.adminChecked = true;
+        },
+        async adminLogin() {
+          try {
+            const r = await fetch("/api/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: this.adminPwd }) });
+            const d = await r.json();
+            if (!r.ok) { this.notify(d.detail || "口令不正确"); return; }
+            this.isAdmin = true; this.adminPwd = "";
+            await this.startDashboard();
+          } catch (e) { this.notify("网络错误"); }
+        },
+        async adminLogout() {
+          try { await fetch("/api/admin/logout", { method: "POST" }); } catch (e) {}
+          this.isAdmin = false;
+        },
+        async startDashboard() {
+          await this.loadHealth();
+          await this.loadConfigs();
+          await this.loadJobs();
+          await this.loadEmail();
+          await this.loadBrowser();
+          await this.loadLogins();
+          await this.loadSlots();
+          await this.loadSubscriptions();
+          await this.loadReferrals();
+          setInterval(() => { if (this.isAdmin) this.loadJobs(); }, 15000);
+          setInterval(() => { if (this.isAdmin) this.loadBrowser(); }, 10000);
+          setInterval(() => { if (this.isAdmin) this.loadLogins(); }, 20000);
+          setInterval(() => { if (this.isAdmin) this.loadSlots(); }, 30000);
+          setInterval(() => { if (this.isAdmin) this.loadSubscriptions(); }, 30000);
+          setInterval(() => { if (this.isAdmin) this.loadReferrals(); }, 30000);
+        },
+        notify(msg) { this.toast = msg; setTimeout(() => this.toast = "", 3000); },
+        fmtTime(t) { if (!t) return ''; try { return new Date(t).toLocaleString('zh-CN', { hour12: false }); } catch (e) { return t; } },
+        async loadSubscriptions() {
+          try { this.subscriptions = await (await fetch("/api/subscriptions")).json(); } catch (e) {}
+        },
+        async loadReferrals() {
+          try { this.referrals = await (await fetch("/api/admin/referrals")).json(); } catch (e) {}
+        },
+        siteName(s) { return { zhilian: "智联招聘", linkedin: "领英", boss: "BOSS直聘", liepin: "猎聘", job51: "前程无忧" }[s] || s; },
+        slotName(s) { return { daily_09: "每天10:00", daily_21: "每天21:00", weekday_09: "工作日10:00", weekly_mon_09: "每周一10:00" }[s] || s; },
+        statusName(s) { return { ok: "成功", failed: "失败", blocked: "被拦", pending: "待跑" }[s] || s; },
+        statusClass(s) { return { ok: "bg-emerald-100 text-emerald-700", failed: "bg-rose-100 text-rose-700", blocked: "bg-amber-100 text-amber-700", pending: "bg-slate-100 text-slate-500" }[s] || "bg-slate-100 text-slate-500"; },
+        async loadSlots() {
+          try {
+            const d = await (await fetch("/api/slots")).json();
+            this.slots = d.slots || [];
+            this.slotsLead = d.lead_minutes ?? 60;
+            this.slotsDate = d.date || '';
+            if (this.openSlot) await this.loadCrawlTasks(this.openSlot);
+          } catch (e) {}
+        },
+        async loadCrawlTasks(slot) {
+          try { this.crawlTasks[slot] = await (await fetch(`/api/slots/${slot}/crawl-tasks`)).json(); } catch (e) {}
+        },
+        async toggleTasks(slot) {
+          if (this.openSlot === slot) { this.openSlot = null; return; }
+          this.openSlot = slot;
+          await this.loadCrawlTasks(slot);
+        },
+        async crawlSlot(slot) {
+          const r = await fetch(`/api/slots/${slot}/crawl`, { method: "POST" });
+          this.notify((await r.json()).message || "已开始预抓取，完成后下面『最后运行』时间会更新");
+          this.watchSlot(slot);
+        },
+        async retrySlot(slot) {
+          const r = await fetch(`/api/slots/${slot}/retry`, { method: "POST" });
+          this.notify((await r.json()).message || "已开始重跑，完成后下面『最后运行』时间会更新");
+          this.watchSlot(slot);
+        },
+        // 预抓取/重跑都是后台任务：自动展开明细并定时回拉，便于确认是本次跑出的结果
+        watchSlot(slot) {
+          this.openSlot = slot;
+          this.loadCrawlTasks(slot);
+          let n = 0;
+          const timer = setInterval(() => {
+            n += 1;
+            if (this.openSlot !== slot || n > 6) { clearInterval(timer); return; }
+            this.loadCrawlTasks(slot);
+            this.loadSlots();
+          }, 5000);
+        },
+        async sendSlot(slot) {
+          const r = await fetch(`/api/slots/${slot}/send`, { method: "POST" });
+          this.notify((await r.json()).message || "已开始发送");
+        },
+        unitName(u) { return { minutes: "分钟", hours: "小时", days: "天" }[u] || u; },
+        dateRangeName(d) { return { any: "不限时间", day: "近一天", week: "近一周", month: "近一月" }[d] || "不限时间"; },
+        scoreColor(s) { return s >= 75 ? "bg-emerald-600" : s >= 50 ? "bg-amber-500" : "bg-slate-400"; },
+
+        async loadHealth() { this.health = await (await fetch("/api/health")).json(); },
+        async loadConfigs() { this.configs = await (await fetch("/api/configs")).json(); },
+        async loadJobs() { this.jobs = await (await fetch("/api/jobs")).json(); },
+        async loadBrowser() { try { this.browser = await (await fetch("/api/browser/status")).json(); } catch (e) {} },
+        async loadLogins() { try { this.logins = await (await fetch("/api/browser/logins")).json(); } catch (e) {} },
+        needLogin(site) { return this.browser.enabled && this.browser.running && !this.logins[site]; },
+        loginText(site) { return this.logins[site] ? "已登录" : (this.needLogin(site) ? "登录已过期，请重新登录" : "未登录"); },
+        loginTextClass(site) { return this.logins[site] ? "text-emerald-600" : (this.needLogin(site) ? "text-rose-600 font-medium" : "text-slate-400"); },
+        async launchBrowser() {
+          this.notify("正在启动浏览器...");
+          const r = await fetch("/api/browser/launch", { method: "POST" });
+          this.notify(r.ok ? "浏览器已启动" : ((await r.json()).detail || "启动失败"));
+          await this.loadBrowser();
+        },
+
+        async saveConfig() {
+          if (!this.form.name || !this.form.keyword) { this.notify("请填写任务名称和关键词"); return; }
+          const r = await fetch("/api/configs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(this.form) });
+          if (r.ok) { this.notify("已添加任务"); this.form.name = ""; this.form.keyword = ""; await this.loadConfigs(); }
+        },
+        async deleteConfig(id) {
+          await fetch(`/api/configs/${id}`, { method: "DELETE" });
+          await this.loadConfigs();
+        },
+        async runConfig(id) {
+          const r = await fetch(`/api/configs/${id}/run`, { method: "POST" });
+          this.notify((await r.json()).message || "已开始");
+        },
+        async runAll() {
+          const r = await fetch(`/api/configs/run-all`, { method: "POST" });
+          this.notify((await r.json()).message || "已开始一键搜索");
+        },
+        async login(site) {
+          const r = await fetch(`/api/login/${site}`, { method: "POST" });
+          this.notify((await r.json()).message || "已打开登录窗口");
+          setTimeout(() => { this.loadBrowser(); this.loadLogins(); }, 3000);
+        },
+        async analyzeJob(id) {
+          this.notify("分析中...");
+          const r = await fetch(`/api/jobs/${id}/analyze`, { method: "POST" });
+          if (r.ok) { this.notify("分析完成"); await this.loadJobs(); }
+          else { this.notify("分析失败: " + (await r.text())); }
+        },
+        async clearJobs() {
+          if (!confirm('确定清空所有职位和分析记录吗？（搜索任务会保留）')) return;
+          const r = await fetch('/api/jobs', { method: 'DELETE' });
+          const d = await r.json();
+          this.notify(`已清空 ${d.deleted_jobs} 条职位`);
+          await this.loadJobs();
+        },
+        async analyzePending() {
+          const r = await fetch("/api/analyze-pending", { method: "POST" });
+          const d = await r.json();
+          this.notify(d.message || "已开始分析");
+          // 后台分析中，加快轮询让结果尽快显示
+          let n = 0;
+          const timer = setInterval(async () => { await this.loadJobs(); if (++n >= 20) clearInterval(timer); }, 6000);
+        },
+        async loadEmail() { this.email = await (await fetch("/api/email/settings")).json(); },
+        async saveEmail(silent) {
+          const r = await fetch("/api/email/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipients: this.email.recipients, enabled: this.email.enabled, include_analysis: this.email.include_analysis, min_score: this.email.min_score }) });
+          if (r.ok && !silent) this.notify("邮件设置已保存");
+          return r.ok;
+        },
+        async testEmail() {
+          if (!this.email.recipients.trim()) { this.notify("请先填写收件人"); return; }
+          await this.saveEmail(true);
+          this.notify("发送测试邮件中...");
+          const r = await fetch("/api/email/test", { method: "POST" });
+          if (r.ok) { const d = await r.json(); this.notify(`测试邮件已发送给 ${d.sent} 人`); }
+          else { this.notify("失败: " + this.errText(await r.text())); }
+        },
+        async pushEmail() {
+          if (!this.email.recipients.trim()) { this.notify("请先填写收件人"); return; }
+          await this.saveEmail(true);
+          this.notify("推送中...");
+          const r = await fetch("/api/email/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+          if (r.ok) { const d = await r.json(); this.notify(d.skipped ? d.skipped : `已推送 ${d.jobs} 个职位给 ${d.sent} 人`); }
+          else { this.notify("失败: " + this.errText(await r.text())); }
+        },
+        errText(t) { try { return JSON.parse(t).detail || t; } catch (e) { return t; } },
+      };
+    }
+  </script>
+</body>
+</html>
